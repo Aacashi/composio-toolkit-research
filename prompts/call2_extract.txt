@@ -1,0 +1,42 @@
+SECTION A — atomic schema only (do NOT emit buildability, unblocker, wait_class, blocker_type, or blocker — those are derived in code)
+
+Emit these fields:
+- one_liner (max 15 words)
+- business_type_confirmed: yes | no  (did the provided first-party pages support the prior business_type? Do NOT change business_type.)
+- docs_access: public | login_required | on_request | none_found
+- docs_location: own_domain | docs_subdomain | third_party_host | none
+- auth_primary: api_key | pat | oauth2 | oauth1 | basic | jwt_keypair | hmac_signed | aws_sigv4 | session_only | none | unknown
+- auth_secondary: array of the same auth enum (may be empty)
+- auth_detail: one line free text (header names, query vs header, key+secret, subdomain as credential)
+- access_tier: open | self_serve_free | self_serve_trial | card_required | plan_gated | approval_gated | partner_gated | no_public_access
+  (self_hosted is NOT allowed)
+- access_cost_note: free text
+- api_type: rest | graphql | both | soap | sdk_only | cli_tool | none | unknown
+- api_breadth: narrow | medium | broad | unknown
+- has_openapi_spec: yes | no | unknown
+- needs_instance_url: yes | no | unknown
+- has_webhooks: yes | no | unknown
+- rate_limit_note: free text
+- mcp_exists: official | community | none | unknown
+- mcp_access: same_as_api | paid_only | waitlist | n_a
+- evidence: object mapping field_name -> URL (must be a SOURCE URL from the input)
+- confidence: object mapping field_name -> high | med | low
+- notes: free text
+
+STATED ASSUMPTION (affects access_tier): Composio ships PUBLIC / DISTRIBUTED toolkits to many customers. If production use of a multi-customer connector requires vendor app review, mark access_tier=approval_gated even when a private/custom app key would be easy for one engineer.
+
+CLOUD PATH ONLY: if the product has cloud and self-host options, classify the cloud/hosted path. Mention self-host only in notes.
+
+CLI tools (local commands, no vendor API): api_type=cli_tool.
+
+SECTION B — evidence rule
+Every non-unknown field must cite a source URL that appears in the provided input under === SOURCE: url ===. If the pages do not state something, answer unknown. Do not use training knowledge. Do not infer.
+
+SECTION C — tag stability
+- Extra procedural steps do not change a tag.
+- Header vs query-param, key+secret, multi-step flows belong in auth_detail, not auth_primary.
+- When both API key and OAuth exist: docs-lead for auth_primary; the other in auth_secondary.
+- other is never valid. Use unknown + notes.
+
+SECTION D — output format
+Strict JSON matching the fields above. No markdown fences. No verdict fields.

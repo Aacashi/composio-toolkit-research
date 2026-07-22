@@ -1,0 +1,92 @@
+[
+  {
+    "id": 5,
+    "app_name": "Twenty",
+    "category": "CRM and Sales",
+    "hint_raw": "twenty.com (open-source CRM)",
+    "hint_url": "https://twenty.com",
+    "hint_type": "note",
+    "hint_note": "open-source CRM"
+  },
+  {
+    "id": 10,
+    "app_name": "DealCloud",
+    "category": "CRM and Sales",
+    "hint_raw": "api.docs.dealcloud.com",
+    "hint_url": "https://api.docs.dealcloud.com",
+    "hint_type": "docs_url",
+    "hint_note": null
+  },
+  {
+    "id": 11,
+    "app_name": "Zendesk",
+    "category": "Support and Helpdesk",
+    "hint_raw": "zendesk.com",
+    "hint_url": "https://zendesk.com",
+    "hint_type": "domain",
+    "hint_note": null
+  },
+  {
+    "id": 32,
+    "app_name": "Meta Ads",
+    "category": "Marketing, Ads, Email and Social",
+    "hint_raw": "developers.facebook.com/docs/marketing-apis",
+    "hint_url": "https://developers.facebook.com/docs/marketing-apis",
+    "hint_type": "docs_url",
+    "hint_note": null
+  },
+  {
+    "id": 41,
+    "app_name": "Shopify",
+    "category": "Ecommerce",
+    "hint_raw": "shopify.dev",
+    "hint_url": "https://shopify.dev",
+    "hint_type": "docs_url",
+    "hint_note": null
+  },
+  {
+    "id": 50,
+    "app_name": "fanbasis",
+    "category": "Ecommerce",
+    "hint_raw": "fanbasis.com",
+    "hint_url": "https://fanbasis.com",
+    "hint_type": "domain",
+    "hint_note": null
+  },
+  {
+    "id": 53,
+    "app_name": "Ahrefs",
+    "category": "Data, SEO and Scraping",
+    "hint_raw": "ahrefs.com/api",
+    "hint_url": "https://ahrefs.com/api",
+    "hint_type": "docs_url",
+    "hint_note": null
+  },
+  {
+    "id": 56,
+    "app_name": "Firecrawl",
+    "category": "Data, SEO and Scraping",
+    "hint_raw": "firecrawl.dev",
+    "hint_url": "https://firecrawl.dev",
+    "hint_type": "domain",
+    "hint_note": null
+  },
+  {
+    "id": 71,
+    "app_name": "Notion",
+    "category": "Productivity and Project Management",
+    "hint_raw": "developers.notion.com",
+    "hint_url": "https://developers.notion.com",
+    "hint_type": "docs_url",
+    "hint_note": null
+  },
+  {
+    "id": 81,
+    "app_name": "Stripe",
+    "category": "Finance and Fintech",
+    "hint_raw": "stripe.com/docs/api",
+    "hint_url": "https://stripe.com/docs/api",
+    "hint_type": "docs_url",
+    "hint_note": null
+  }
+]

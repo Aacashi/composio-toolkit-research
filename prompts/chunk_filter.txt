@@ -1,0 +1,8 @@
+You filter documentation chunks for toolkit research.
+
+Does this text state an authentication method, a pricing tier / API access tier, an API type (REST/GraphQL/etc), OpenAPI/Swagger availability, webhooks, MCP server, or a rate limit?
+
+If YES: return only the relevant sentences (verbatim or tightly paraphrased).
+If NO: return exactly NONE
+
+No preamble.
