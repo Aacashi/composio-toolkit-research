@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 import re
+import time
 from pathlib import Path
 from typing import Any, Callable, Optional
 
@@ -47,7 +48,41 @@ def get_gemini_client():
 
 
 # Logic freeze: Flash-Lite for all three calls. Stable GA id.
-MODEL_ID = "gemini-2.5-flash-lite"
+MODEL_ID = "gemini-3.5-flash-lite"
+
+
+def _is_rate_limit_error(exc: BaseException) -> bool:
+    msg = str(exc).lower()
+    return "429" in msg or "resource_exhausted" in msg or ("rate" in msg and "quota" in msg)
+
+
+def generate_content_retry(
+    client: Any, *, model: str, contents: Any, config: Any, retries: int = 6
+):
+    """Call Gemini with backoff on free-tier 429s."""
+    delay = 25.0
+    last: Optional[BaseException] = None
+    for attempt in range(retries):
+        try:
+            return client.models.generate_content(
+                model=model, contents=contents, config=config
+            )
+        except Exception as e:
+            last = e
+            if not _is_rate_limit_error(e) or attempt >= retries - 1:
+                raise
+            wait = delay
+            m = re.search(r"retry in ([0-9.]+)s", str(e), re.I)
+            if m:
+                wait = max(delay, float(m.group(1)) + 2.0)
+            print(
+                f"[gemini] 429 rate limit — sleeping {wait:.0f}s "
+                f"(attempt {attempt + 1}/{retries})"
+            )
+            time.sleep(wait)
+            delay = min(delay * 1.5, 90.0)
+    assert last is not None
+    raise last
 
 
 def generate_json(
@@ -70,7 +105,8 @@ def generate_json(
 
     client = get_gemini_client()
     full = f"{system_prompt}\n\n---\n\n{user_prompt}"
-    resp = client.models.generate_content(
+    resp = generate_content_retry(
+        client,
         model=MODEL_ID,
         contents=full,
         config={
@@ -91,7 +127,7 @@ def discover_with_search_agent(
     user_prompt: str,
     cache_payload: dict[str, Any],
     search_fn: Callable[[str, int], list[dict[str, Any]]],
-    max_tool_calls: int = 4,
+    max_tool_calls: int = 6,
     on_search: Optional[Callable[[str, list[dict[str, Any]]], None]] = None,
 ) -> tuple[dict[str, Any], int, list[dict[str, Any]]]:
     """
@@ -147,9 +183,10 @@ def discover_with_search_agent(
     tool_calls = 0
     trace: list[dict[str, Any]] = []
     final_text = ""
+    secondary_nudge_sent = False
 
     # Iterative tool loop. Cap at max_tool_calls searches.
-    for _round in range(max_tool_calls + 2):
+    for _round in range(max_tool_calls + 4):
         # After tool budget exhausted, force a plain JSON answer (no tools).
         use_tools = tool_calls < max_tool_calls
         config_kwargs: dict[str, Any] = {
@@ -179,7 +216,8 @@ def discover_with_search_agent(
                 )
             )
 
-        resp = client.models.generate_content(
+        resp = generate_content_retry(
+            client,
             model=MODEL_ID,
             contents=contents,
             config=types.GenerateContentConfig(**config_kwargs),
@@ -214,15 +252,74 @@ def discover_with_search_agent(
                 tool_calls += 1
                 if on_search:
                     on_search(query, results)
-                trace.append({"query": query, "max_results": max_results, "results": results})
+                zero = not results
+                if zero:
+                    print(
+                        f"[agent] ZERO RESULTS for {query!r} — "
+                        "rephrase if scored target and budget remains"
+                    )
+                trace.append(
+                    {
+                        "query": query,
+                        "max_results": max_results,
+                        "results": results,
+                        "zero_results": zero,
+                    }
+                )
                 payload = json.dumps(results)[:5000]
+                fn_response: dict[str, Any] = {
+                    "results": results,
+                    "result_json": payload,
+                    "zero_results": zero,
+                }
+                if zero:
+                    fn_response["instruction"] = (
+                        "ZERO RESULTS. If this was for a scored target (auth or "
+                        "pricing/access_tier), retry once with different wording before "
+                        "leaving that URL null. Secondary targets (MCP, OpenAPI, webhooks) "
+                        "retry only if budget remains after scored coverage. MCP is "
+                        "deprioritised under budget pressure only."
+                    )
                 response_parts.append(
                     types.Part.from_function_response(
                         name=name,
-                        response={"results": results, "result_json": payload},
+                        response=fn_response,
                     )
                 )
             contents.append(types.Content(role="user", parts=response_parts))
+            continue
+
+        # No tool call — if budget remains and we have not nudged for secondary
+        # coverage yet, push one more search round (MCP / OpenAPI / webhooks).
+        if (
+            use_tools
+            and tool_calls < max_tool_calls
+            and tool_calls > 0
+            and not secondary_nudge_sent
+        ):
+            secondary_nudge_sent = True
+            remaining = max_tool_calls - tool_calls
+            print(
+                f"[agent] early finalize with {remaining} calls left — "
+                "nudging MCP-first secondary search"
+            )
+            contents.append(
+                types.Content(
+                    role="user",
+                    parts=[
+                        types.Part.from_text(
+                            text=(
+                                f"You still have {remaining} search call(s). Do NOT finalize. "
+                                "First remaining call MUST search for the vendor MCP server "
+                                "(Model Context Protocol), e.g. "
+                                "'site:{vendor} MCP Model Context Protocol' or "
+                                "'{name} MCP server docs'. Then use any leftover calls for "
+                                "OpenAPI/Swagger or webhooks if those URLs are still null."
+                            )
+                        )
+                    ],
+                )
+            )
             continue
 
         # No tool call — treat as final answer
@@ -235,7 +332,8 @@ def discover_with_search_agent(
     try:
         data = parse_json_loose(final_text)
     except Exception:
-        fmt = client.models.generate_content(
+        fmt = generate_content_retry(
+            client,
             model=MODEL_ID,
             contents=(
                 f"{system_prompt}\n\nConvert the following discovery notes into the required "
@@ -284,7 +382,8 @@ def chunk_filter_call(chunk: str, app_name: str, chunk_idx: int) -> str:
         return hit.get("text", "NONE")
 
     client = get_gemini_client()
-    resp = client.models.generate_content(
+    resp = generate_content_retry(
+        client,
         model=MODEL_ID,
         contents=f"{system}\n\n---\n\nCHUNK:\n{chunk}",
         config={"temperature": 0.0},

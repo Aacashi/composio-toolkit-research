@@ -9,6 +9,9 @@ Emit:
 - auth_detail: one line free text (header names, query vs header, key+secret, secondary schemes). Fold any secondary auth into this text.
 - access_tier: open | self_serve_free | self_serve_trial | card_required | plan_gated | approval_gated | partner_gated | no_public_access
   (self_hosted is NOT allowed)
+  open = no account and no credentials required at all (truly public).
+  self_serve_free = free signup required, no card, credentials in minutes.
+  "No setup fees" / "pay-as-you-go" on a pricing page is NOT open if signup is required — that is self_serve_free (or a higher gated tier).
 - access_cost_note: free text
 - api_type: rest | graphql | both | cli_only | none | unknown
   cli_only = NO API at all, only a local CLI (e.g. Mermaid CLI, Sherlock).
@@ -31,6 +34,11 @@ Emit:
 CRITICAL: none and unknown are NEVER interchangeable.
   none = we checked and it genuinely does not exist
   unknown = we looked and could not determine
+
+ABSENCE RULE (hard): For mcp_exists, api_type, auth_primary, has_webhooks, has_openapi_spec —
+you may only return the absence value (none for mcp_exists / api_type / auth_primary; no for
+has_webhooks / has_openapi_spec) if a fetched === SOURCE === page positively indicates absence.
+If no fetched page addresses that field at all, the answer is unknown. Never infer absence from silence.
 
 STATED ASSUMPTION: Composio ships PUBLIC / DISTRIBUTED toolkits. If production multi-customer use needs vendor app review, access_tier=approval_gated even if a private/custom app key would be easy for one engineer.
 

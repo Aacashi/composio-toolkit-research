@@ -39,7 +39,7 @@ def node_discover(
 ) -> dict[str, Any]:
     """
     Call 1 AGENT: Gemini with Tavily search tool bound.
-    Gemini decides every query (business-type prior drives search). Max 4 tool calls.
+    Gemini decides every query (business-type prior drives search). Max 6 tool calls.
     """
     dbg.stage_start("discover")
     seeded = seed_first_party_domains(app)
@@ -98,7 +98,7 @@ def node_discover(
         user_prompt=user_prompt,
         cache_payload=cache_payload,
         search_fn=_search,
-        max_tool_calls=4,
+        max_tool_calls=6,
         on_search=_on_search,
     )
     dbg.add_gemini(

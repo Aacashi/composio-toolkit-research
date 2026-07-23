@@ -1,6 +1,6 @@
 """Tavily search + batched extract via Composio SDK, with direct API fallback.
 
-Primary: composio.tools.execute(TAVILY_SEARCH / TAVILY_EXTRACT)
+Primary: composio.tools.execute(TAVILY_SEARCH / TAVILY_EXTRACT, version=...)
 Fallback: https://api.tavily.com  (same interface; documented in README)
 """
 
@@ -83,16 +83,29 @@ class TavilyClient:
         self.user_id = os.getenv("COMPOSIO_USER_ID", "default")
         self.auth_config_id = os.getenv("COMPOSIO_AUTH_CONFIG_ID", "")
         self.connected_account_id = os.getenv("COMPOSIO_CONNECTED_ACCOUNT_ID", "") or None
-        self.mode = "direct"  # or "composio"
+        self.toolkit_version = (os.getenv("COMPOSIO_TAVILY_VERSION") or "").strip()
+        # mode = what actually executed successfully last; never stay "composio" after fallback
+        self.mode = "direct"
+        self.fallback_used = False
+        self.composio_error: Optional[str] = None
+        self.composio_executes = 0
+        self.version_used: Optional[str] = None
         self._composio = None
         self._http = httpx.Client(timeout=90.0)
         self._init_provider()
 
+    def provider_debug(self) -> dict[str, Any]:
+        return {
+            "tavily_provider": self.mode,
+            "composio_error": self.composio_error,
+            "fallback_used": self.fallback_used,
+            "composio_executes": self.composio_executes,
+            "toolkit_version_env": self.toolkit_version or None,
+            "version_used": self.version_used,
+        }
+
     def _log(self, msg: str) -> None:
-        if self.verbose:
-            print(msg)
-        else:
-            print(msg)  # always print stage lines per amendment
+        print(msg)
 
     def _init_provider(self) -> None:
         if self.composio_api_key:
@@ -104,15 +117,78 @@ class TavilyClient:
                 self._log(
                     f"[tavily] provider=composio user_id={self.user_id} "
                     f"auth_config={self.auth_config_id or 'n/a'} "
-                    f"connected_account={self.connected_account_id or 'auto'}"
+                    f"connected_account={self.connected_account_id or 'auto'} "
+                    f"toolkit_version={self.toolkit_version or 'UNSET'}"
                 )
                 return
             except Exception as e:
-                self._log(f"[tavily] composio init failed ({e}); falling back to direct")
+                self.composio_error = str(e)
+                self._log(
+                    f"[tavily] WARN composio init failed: {e}; falling back to direct"
+                )
+                self.fallback_used = True
         if not self.tavily_api_key:
             self._log("[tavily] WARN: no COMPOSIO_API_KEY path and no TAVILY_API_KEY")
         self.mode = "direct"
         self._log("[tavily] provider=direct")
+
+    def _version_candidates(self) -> list[Optional[str]]:
+        v = self.toolkit_version
+        if not v:
+            return [None]
+        cands: list[Optional[str]] = [v]
+        if v.startswith("v") and v[1:] not in cands:
+            cands.append(v[1:])
+        elif not v.startswith("v"):
+            alt = f"v{v}"
+            if alt not in cands:
+                cands.append(alt)
+        return cands
+
+    def _mark_composio_fallback(self, err: Exception) -> None:
+        self.composio_error = str(err)
+        self.fallback_used = True
+        self.mode = "direct"
+        self._log(
+            f"[tavily] WARN composio execute failed: {err}; falling back to direct"
+        )
+
+    def _composio_execute(self, slug: str, arguments: dict[str, Any]) -> Any:
+        assert self._composio is not None
+        base_kwargs: dict[str, Any] = {"user_id": self.user_id}
+        if self.connected_account_id:
+            base_kwargs["connected_account_id"] = self.connected_account_id
+
+        last_err: Optional[Exception] = None
+        for ver in self._version_candidates():
+            kwargs = dict(base_kwargs)
+            if ver is not None:
+                kwargs["version"] = ver
+            try:
+                raw = self._composio.tools.execute(slug, arguments, **kwargs)
+                self.composio_executes += 1
+                self.version_used = ver
+                self.mode = "composio"
+                return raw
+            except Exception as e:
+                last_err = e
+                msg = str(e).lower()
+                # Retry alternate version form for version-shaped failures OR
+                # "tool not found" (Composio returns 404 Tool_ToolNotFound for bad version tags).
+                if ver is not None and (
+                    "version" in msg
+                    or "toolkit" in msg
+                    or "not specified" in msg
+                    or "not found" in msg
+                    or "tool_toolnotfound" in msg
+                ):
+                    self._log(
+                        f"[tavily] composio version={ver!r} rejected for {slug}; trying next"
+                    )
+                    continue
+                raise
+        assert last_err is not None
+        raise last_err
 
     # ---- cache helpers ----
 
@@ -135,12 +211,12 @@ class TavilyClient:
         self._log(f"[tavily] search q={query!r}")
         results: list[dict[str, Any]] = []
         charged = False
-        if self.mode == "composio" and self._composio is not None:
+        if self._composio is not None and not self.fallback_used:
             try:
                 results = self._composio_search(query, limit)
                 charged = True
             except Exception as e:
-                self._log(f"[tavily] composio search failed ({e}); trying direct")
+                self._mark_composio_fallback(e)
                 if self.tavily_api_key:
                     results = self._direct_search(query, limit)
                     charged = True
@@ -156,35 +232,18 @@ class TavilyClient:
         return results
 
     def _composio_search(self, query: str, limit: int) -> list[dict[str, Any]]:
-        assert self._composio is not None
-        kwargs: dict[str, Any] = {
-            "user_id": self.user_id,
-        }
-        if self.connected_account_id:
-            kwargs["connected_account_id"] = self.connected_account_id
-        raw = self._composio.tools.execute(
+        raw = self._composio_execute(
             "TAVILY_SEARCH",
             {
                 "query": query,
                 "search_depth": "basic",
                 "max_results": limit,
             },
-            **kwargs,
         )
         return _normalize_search_results(raw)
 
     def _composio_extract(self, urls: list[str]) -> list[dict[str, Any]]:
-        assert self._composio is not None
-        kwargs: dict[str, Any] = {
-            "user_id": self.user_id,
-        }
-        if self.connected_account_id:
-            kwargs["connected_account_id"] = self.connected_account_id
-        raw = self._composio.tools.execute(
-            "TAVILY_EXTRACT",
-            {"urls": urls},
-            **kwargs,
-        )
+        raw = self._composio_execute("TAVILY_EXTRACT", {"urls": urls})
         return _normalize_extract_results(raw, urls)
 
     def _direct_search(self, query: str, limit: int) -> list[dict[str, Any]]:
@@ -228,12 +287,12 @@ class TavilyClient:
         for i in range(0, len(pending), EXTRACT_BATCH_SIZE):
             chunk = pending[i : i + EXTRACT_BATCH_SIZE]
             self._log(f"[tavily] extract batch n={len(chunk)} urls={chunk}")
-            if self.mode == "composio" and self._composio is not None:
+            if self._composio is not None and not self.fallback_used:
                 try:
                     batch_results = self._composio_extract(chunk)
                     charged = True
                 except Exception as e:
-                    self._log(f"[tavily] composio extract failed ({e}); trying direct")
+                    self._mark_composio_fallback(e)
                     if not self.tavily_api_key:
                         batch_results = [
                             {"url": u, "markdown": "", "error": "no credentials"}
@@ -262,7 +321,6 @@ class TavilyClient:
                     self._extract_cache_path(url).write_text(md, encoding="utf-8")
                 out.append(item)
 
-        # preserve input order among successfully requested urls
         by_url = {r["url"]: r for r in out}
         ordered = []
         for u in urls:
@@ -293,9 +351,8 @@ def _normalize_search_results(raw: Any) -> list[dict[str, Any]]:
         data = (
             raw.get("results")
             or raw.get("data")
-            or (raw.get("dataresponse") if False else None)
             or raw.get("response_data", {}).get("results")
-            or raw.get("data", {}).get("results")
+            or (raw.get("data", {}).get("results") if isinstance(raw.get("data"), dict) else None)
             or raw
         )
         if isinstance(data, dict):

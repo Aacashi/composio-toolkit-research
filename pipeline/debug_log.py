@@ -85,6 +85,9 @@ class DebugRecorder:
     def set_credits(self, n: int) -> None:
         self.data["credits"] = n
 
+    def set_tavily_provider(self, info: dict[str, Any]) -> None:
+        self.data.update(info)
+
     def add_error(self, msg: str) -> None:
         self.data["errors"].append(msg)
 

@@ -69,6 +69,7 @@ def process_one_app(
             row["backup_links"] = discover.get("backup_links") or []
             row["run_id"] = run_id
             dbg.set_credits(tv.tracker.per_app.get(app["app_name"], 0))
+            dbg.set_tavily_provider(tv.provider_debug())
             dbg.write()
             return _attach_composio(row, composio_fields)
 
@@ -86,6 +87,7 @@ def process_one_app(
                 row["run_id"] = run_id
                 row["notes"] = f"schema_fail: {err2}"
                 dbg.set_credits(tv.tracker.per_app.get(app["app_name"], 0))
+                dbg.set_tavily_provider(tv.provider_debug())
                 dbg.write()
                 return _attach_composio(row, composio_fields)
 
@@ -136,12 +138,15 @@ def process_one_app(
             dbg=dbg,
         )
         dbg.set_credits(tv.tracker.per_app.get(app["app_name"], 0))
+        dbg.set_tavily_provider(tv.provider_debug())
         dbg.write()
         return _attach_composio(row, composio_fields)
 
     except Exception as e:
         print(f"[graph] FAIL {app.get('app_name')}: {e}")
         dbg.add_error(str(e))
+        dbg.set_credits(tv.tracker.per_app.get(app["app_name"], 0))
+        dbg.set_tavily_provider(tv.provider_debug())
         dbg.write()
         row = empty_unknown_row(app, flags=["schema_fail"], docs_access="unknown")
         row["notes"] = f"pipeline exception: {e}"

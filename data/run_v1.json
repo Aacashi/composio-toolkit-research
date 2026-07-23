@@ -1,0 +1,707 @@
+[
+  {
+    "app_name": "Stripe",
+    "category": "Finance and Fintech",
+    "one_liner": "Stripe provides a robust REST API and MCP server for complete financial and payments infrastructure.",
+    "business_type": "infra_usage_based",
+    "docs_access": "public",
+    "auth_primary": "api_key",
+    "auth_detail": "Uses API keys (test mode secret keys starting with sk_test_, live mode restricted keys starting with rk_live_, or live mode secret keys starting with sk_live_) passed via HTTP basic auth or Bearer token.",
+    "access_tier": "self_serve_free",
+    "access_cost_note": "Pay-as-you-go pricing (e.g. 2.9% + 30¢ per successful transaction for domestic cards) with free signup and no setup fees.",
+    "api_type": "rest",
+    "has_openapi_spec": "unknown",
+    "needs_instance_url": "no",
+    "has_webhooks": "yes",
+    "mcp_exists": "official_open",
+    "is_open_source": "no",
+    "evidence": {
+      "one_liner": "https://stripe.com/docs/api",
+      "business_type_supported": "https://stripe.com/pricing",
+      "docs_access": "https://stripe.com/docs/api",
+      "auth_primary": "https://stripe.com/docs/api/authentication",
+      "auth_detail": "https://stripe.com/docs/api/authentication",
+      "access_tier": "https://stripe.com/pricing",
+      "access_cost_note": "https://stripe.com/pricing",
+      "api_type": "https://stripe.com/docs/api",
+      "needs_instance_url": "https://stripe.com/docs/api",
+      "has_webhooks": "https://stripe.com/docs/webhooks",
+      "mcp_exists": "https://docs.stripe.com/mcp",
+      "is_open_source": "https://docs.stripe.com/mcp"
+    },
+    "confidence": {
+      "one_liner": "high",
+      "business_type_supported": "high",
+      "docs_access": "high",
+      "auth_primary": "high",
+      "auth_detail": "high",
+      "access_tier": "high",
+      "access_cost_note": "high",
+      "api_type": "high",
+      "has_openapi_spec": "high",
+      "needs_instance_url": "high",
+      "has_webhooks": "high",
+      "mcp_exists": "high",
+      "is_open_source": "high"
+    },
+    "flags": [
+      "chunked",
+      "unsupported_absence"
+    ],
+    "sources_fetched": [
+      "https://stripe.com/docs/api/authentication",
+      "https://stripe.com/pricing",
+      "https://stripe.com/docs/api",
+      "https://stripe.com/docs/webhooks",
+      "https://docs.stripe.com/mcp"
+    ],
+    "first_party_domains": [
+      "stripe.com",
+      "docs.stripe.com",
+      "support.stripe.com"
+    ],
+    "backup_links": [],
+    "notes": "Stripe provides an official Model Context Protocol (MCP) server at https://mcp.stripe.com which allows AI agents to interact with the Stripe API.",
+    "run_id": "20260723T053859Z",
+    "composio_supports": "yes",
+    "composio_auth_scheme": "api_key",
+    "agrees_with_composio": "yes"
+  },
+  {
+    "app_name": "Twenty",
+    "category": "CRM and Sales",
+    "one_liner": "Open-source CRM with customizable REST and GraphQL APIs, webhooks, and an MCP server.",
+    "business_type": "saas_seat_based",
+    "docs_access": "public",
+    "auth_primary": "oauth2",
+    "auth_detail": "Bearer token via Authorization header for API keys; OAuth 2.0 with Authorization Code and Client Credentials flows.",
+    "access_tier": "self_serve_free",
+    "access_cost_note": "Free trial available on cloud with self-serve signup; offers paid Pro ($9/user/month) and Organization ($19/user/month) plans.",
+    "api_type": "both",
+    "has_openapi_spec": "unknown",
+    "needs_instance_url": "yes",
+    "has_webhooks": "yes",
+    "mcp_exists": "official_open",
+    "is_open_source": "yes",
+    "evidence": {
+      "one_liner": "https://docs.twenty.com/developers/extend/api",
+      "business_type_supported": "https://twenty.com/pricing",
+      "docs_access": "https://docs.twenty.com/developers/extend/api",
+      "auth_primary": "https://docs.twenty.com/developers/extend/oauth",
+      "auth_detail": "https://docs.twenty.com/developers/extend/api",
+      "access_tier": "https://twenty.com/pricing",
+      "access_cost_note": "https://twenty.com/pricing",
+      "api_type": "https://docs.twenty.com/developers/extend/api",
+      "needs_instance_url": "https://docs.twenty.com/developers/extend/api",
+      "has_webhooks": "https://docs.twenty.com/developers/extend/webhooks",
+      "mcp_exists": "https://docs.twenty.com/developers/extend/mcp",
+      "is_open_source": "https://twenty.com/pricing"
+    },
+    "confidence": {
+      "one_liner": "high",
+      "business_type_supported": "high",
+      "docs_access": "high",
+      "auth_primary": "high",
+      "auth_detail": "high",
+      "access_tier": "high",
+      "access_cost_note": "high",
+      "api_type": "high",
+      "has_openapi_spec": "high",
+      "needs_instance_url": "high",
+      "has_webhooks": "high",
+      "mcp_exists": "high",
+      "is_open_source": "high"
+    },
+    "flags": [
+      "unsupported_absence"
+    ],
+    "sources_fetched": [
+      "https://docs.twenty.com/developers/extend/oauth",
+      "https://twenty.com/pricing",
+      "https://docs.twenty.com/developers/extend/api",
+      "https://docs.twenty.com/developers/extend/webhooks",
+      "https://docs.twenty.com/developers/extend/mcp"
+    ],
+    "first_party_domains": [
+      "twenty.com",
+      "docs.twenty.com"
+    ],
+    "backup_links": [
+      {
+        "url": "https://docs.twenty.com/user-guide/billing/overview",
+        "why": "Billing and plan details in the official docs"
+      }
+    ],
+    "notes": "Twenty generates tenant-specific REST and GraphQL APIs from the workspace schema rather than using a static reference or OpenAPI specification file.",
+    "run_id": "20260723T053916Z",
+    "composio_supports": "no",
+    "composio_auth_scheme": null,
+    "agrees_with_composio": "n_a"
+  },
+  {
+    "app_name": "Zendesk",
+    "category": "Support and Helpdesk",
+    "one_liner": "Customer service and support platform with APIs for ticketing, help center, and messaging.",
+    "business_type": "saas_seat_based",
+    "docs_access": "public",
+    "auth_primary": "oauth2",
+    "auth_detail": "OAuth 2.0 (Authorization code and Client credentials flows) or API tokens.",
+    "access_tier": "card_required",
+    "access_cost_note": "Paid agent plans starting from $19/agent/month paid yearly.",
+    "api_type": "rest",
+    "has_openapi_spec": "yes",
+    "needs_instance_url": "yes",
+    "has_webhooks": "yes",
+    "mcp_exists": "unknown",
+    "is_open_source": "no",
+    "evidence": {
+      "one_liner": "https://developer.zendesk.com/api-reference",
+      "business_type_supported": "https://www.zendesk.com/pricing",
+      "docs_access": "https://developer.zendesk.com/api-reference",
+      "auth_primary": "https://developer.zendesk.com/documentation/api-basics/authentication/api-tokens-to-oauth",
+      "auth_detail": "https://developer.zendesk.com/documentation/api-basics/authentication/api-tokens-to-oauth",
+      "access_tier": "https://www.zendesk.com/pricing",
+      "access_cost_note": "https://www.zendesk.com/pricing",
+      "api_type": "https://developer.zendesk.com/api-reference",
+      "has_openapi_spec": "https://developer.zendesk.com/documentation/conversations/references/openapi-specification",
+      "needs_instance_url": "https://developer.zendesk.com/api-reference",
+      "has_webhooks": "https://developer.zendesk.com/documentation/webhooks",
+      "is_open_source": "https://developer.zendesk.com/api-reference"
+    },
+    "confidence": {
+      "one_liner": "high",
+      "business_type_supported": "high",
+      "docs_access": "high",
+      "auth_primary": "high",
+      "auth_detail": "high",
+      "access_tier": "high",
+      "access_cost_note": "high",
+      "api_type": "high",
+      "has_openapi_spec": "high",
+      "needs_instance_url": "med",
+      "has_webhooks": "high",
+      "mcp_exists": "high",
+      "is_open_source": "med"
+    },
+    "flags": [
+      "chunked",
+      "thin_content",
+      "second_round_used",
+      "unsupported_absence"
+    ],
+    "sources_fetched": [
+      "https://developer.zendesk.com/documentation/api-basics/authentication/api-tokens-to-oauth",
+      "https://www.zendesk.com/pricing",
+      "https://developer.zendesk.com/api-reference",
+      "https://developer.zendesk.com/documentation/webhooks",
+      "https://developer.zendesk.com/documentation/conversations/references/openapi-specification"
+    ],
+    "first_party_domains": [
+      "zendesk.com",
+      "developer.zendesk.com"
+    ],
+    "backup_links": [
+      {
+        "url": "https://developer.zendesk.com/api-reference/introduction/security-and-auth",
+        "why": "Security and authentication overview for Zendesk APIs"
+      }
+    ],
+    "notes": "Zendesk requires a paid subscription to access its APIs and products. Instance URL (subdomain) is typically required to construct API requests. | contradiction auth_detail: kept 'OAuth 2.0 (Authorization code and Client credentials flows) or API tokens.', second said 'OAuth flows include Authorization code and Client credentials, as well as API tokens.' | contradiction access_cost_note: kept 'Paid agent plans starting from $19/agent/month paid yearly.', second said 'Paid plans starting from US$19/agent/month paid yearly.' | contradiction one_liner: kept 'Customer service and support platform with APIs for ticketing, help center, and messaging.', second said 'Customer service software with ticketing, help center, and omnichannel messaging APIs.'",
+    "run_id": "20260723T053916Z",
+    "composio_supports": "yes",
+    "composio_auth_scheme": "oauth2",
+    "agrees_with_composio": "yes"
+  },
+  {
+    "app_name": "Meta Ads",
+    "category": "Marketing, Ads, Email and Social",
+    "one_liner": "Manage Meta ads and campaigns programmatically via Marketing API and Graph API endpoints.",
+    "business_type": "ad_platform",
+    "docs_access": "public",
+    "auth_primary": "oauth2",
+    "auth_detail": "Access tokens obtained via authorization and authentication steps, passed to Graph API endpoints.",
+    "access_tier": "approval_gated",
+    "access_cost_note": "Free to use via Meta developer account, but requires an active ad account and app review/full access for production use.",
+    "api_type": "rest",
+    "has_openapi_spec": "unknown",
+    "needs_instance_url": "no",
+    "has_webhooks": "yes",
+    "mcp_exists": "official_open",
+    "is_open_source": "no",
+    "evidence": {
+      "one_liner": "https://developers.facebook.com/docs/marketing-apis",
+      "business_type_supported": "https://developers.facebook.com/docs/marketing-apis/get-started",
+      "docs_access": "https://developers.facebook.com/docs/marketing-apis/get-started",
+      "auth_primary": "https://developers.facebook.com/docs/marketing-apis/get-started",
+      "auth_detail": "https://developers.facebook.com/docs/marketing-apis/get-started",
+      "access_tier": "https://developers.facebook.com/docs/marketing-apis/rate-limiting",
+      "access_cost_note": "https://developers.facebook.com/docs/marketing-apis/rate-limiting",
+      "api_type": "https://developers.facebook.com/docs/marketing-apis",
+      "needs_instance_url": "https://developers.facebook.com/docs/marketing-apis",
+      "has_webhooks": "https://developers.facebook.com/docs/graph-api/webhooks",
+      "mcp_exists": "https://developers.facebook.com/docs/marketing-apis",
+      "is_open_source": "https://developers.facebook.com/docs/marketing-apis"
+    },
+    "confidence": {
+      "one_liner": "high",
+      "business_type_supported": "high",
+      "docs_access": "high",
+      "auth_primary": "high",
+      "auth_detail": "high",
+      "access_tier": "high",
+      "access_cost_note": "high",
+      "api_type": "high",
+      "has_openapi_spec": "high",
+      "needs_instance_url": "high",
+      "has_webhooks": "high",
+      "mcp_exists": "high",
+      "is_open_source": "med"
+    },
+    "flags": [
+      "chunked",
+      "thin_content",
+      "second_round_used",
+      "unsupported_absence"
+    ],
+    "sources_fetched": [
+      "https://developers.facebook.com/docs/marketing-apis/get-started",
+      "https://developers.facebook.com/docs/marketing-apis/rate-limiting",
+      "https://developers.facebook.com/docs/marketing-apis",
+      "https://developers.facebook.com/documentation/ads-commerce/marketing-api",
+      "https://developers.facebook.com/docs/graph-api/webhooks"
+    ],
+    "first_party_domains": [
+      "developers.facebook.com",
+      "facebook.com"
+    ],
+    "backup_links": [],
+    "notes": "Mentions Ads MCP Server in the documentation. Access tiers range from development tier to full access. | contradiction auth_detail: kept 'Access tokens obtained via authorization and authentication steps, passed to Graph API endpoints.', second said 'Access tokens passed in headers or query parameters for Graph API authentication.' | contradiction access_cost_note: kept 'Free to use via Meta developer account, but requires an active ad account and app review/full access for production use.', second said 'Free developer account required; production usage requires Meta App Review.' | contradiction one_liner: kept 'Manage Meta ads and campaigns programmatically via Marketing API and Graph API endpoints.', second said 'Manage and optimize Meta ad campaigns across Facebook and Instagram via Graph API.'",
+    "run_id": "20260723T053916Z",
+    "composio_supports": "yes",
+    "composio_auth_scheme": "oauth2",
+    "agrees_with_composio": "yes"
+  },
+  {
+    "app_name": "fanbasis",
+    "category": "Ecommerce",
+    "one_liner": "Fanbasis provides commerce tools with official beta MCP support for AI assistants.",
+    "business_type": "commerce_platform",
+    "docs_access": "unknown",
+    "auth_primary": "unknown",
+    "auth_detail": "unknown",
+    "access_tier": "unknown",
+    "access_cost_note": "unknown",
+    "api_type": "unknown",
+    "has_openapi_spec": "unknown",
+    "needs_instance_url": "unknown",
+    "has_webhooks": "unknown",
+    "mcp_exists": "official_open",
+    "is_open_source": "unknown",
+    "evidence": {
+      "mcp_exists": "https://www.fanbasis.com"
+    },
+    "confidence": {
+      "one_liner": "high",
+      "business_type_supported": "high",
+      "docs_access": "high",
+      "auth_primary": "med",
+      "auth_detail": "med",
+      "access_tier": "med",
+      "access_cost_note": "med",
+      "api_type": "med",
+      "has_openapi_spec": "med",
+      "needs_instance_url": "med",
+      "has_webhooks": "med",
+      "mcp_exists": "high",
+      "is_open_source": "med"
+    },
+    "flags": [
+      "chunked",
+      "thin_content",
+      "unsourced"
+    ],
+    "sources_fetched": [
+      "https://www.fanbasis.com"
+    ],
+    "first_party_domains": [
+      "fanbasis.com",
+      "dev-docs.fanbasis.com",
+      "support.fanbasis.com"
+    ],
+    "backup_links": [
+      {
+        "url": "https://support.fanbasis.com",
+        "why": "Support knowledge base for the FanBasis/Commas platform"
+      }
+    ],
+    "notes": "The provided source page mentions MCP beta for running operations from an AI assistant, but details on API, docs, and authentication are not present on the scraped page.",
+    "run_id": "20260723T053916Z",
+    "composio_supports": "no",
+    "composio_auth_scheme": null,
+    "agrees_with_composio": "n_a"
+  },
+  {
+    "app_name": "Ahrefs",
+    "category": "Data, SEO and Scraping",
+    "one_liner": "Access Ahrefs marketing and search data through REST API and developer tools.",
+    "business_type": "data_vendor",
+    "docs_access": "public",
+    "auth_primary": "api_key",
+    "auth_detail": "API keys created and managed for REST API access; OAuth 2.0 authorization for Ahrefs Connect integration program.",
+    "access_tier": "plan_gated",
+    "access_cost_note": "Requires an Enterprise plan or specific API pricing tier.",
+    "api_type": "rest",
+    "has_openapi_spec": "yes",
+    "needs_instance_url": "no",
+    "has_webhooks": "unknown",
+    "mcp_exists": "official_open",
+    "is_open_source": "no",
+    "evidence": {
+      "one_liner": "https://ahrefs.com/api/pricing",
+      "business_type_supported": "https://ahrefs.com/api/pricing",
+      "docs_access": "https://ahrefs.com/api/pricing",
+      "auth_primary": "https://ahrefs.com/api/pricing",
+      "auth_detail": "https://ahrefs.com/api/pricing",
+      "access_tier": "https://ahrefs.com/api/pricing",
+      "access_cost_note": "https://ahrefs.com/api/pricing",
+      "api_type": "https://ahrefs.com/api/pricing",
+      "has_openapi_spec": "https://ahrefs.com/api/pricing",
+      "needs_instance_url": "https://ahrefs.com/api/pricing",
+      "has_webhooks": "https://ahrefs.com/api/pricing",
+      "mcp_exists": "https://ahrefs.com/api/pricing",
+      "is_open_source": "https://ahrefs.com/api/pricing"
+    },
+    "confidence": {
+      "one_liner": "high",
+      "business_type_supported": "high",
+      "docs_access": "high",
+      "auth_primary": "high",
+      "auth_detail": "high",
+      "access_tier": "high",
+      "access_cost_note": "high",
+      "api_type": "high",
+      "has_openapi_spec": "high",
+      "needs_instance_url": "high",
+      "has_webhooks": "high",
+      "mcp_exists": "high",
+      "is_open_source": "high"
+    },
+    "flags": [
+      "second_round_used"
+    ],
+    "sources_fetched": [
+      "https://ahrefs.com/api/pricing",
+      "https://ahrefs.com/api/subscription",
+      "https://ahrefs.com/api",
+      "https://docs.ahrefs.com/en/api/docs/introduction"
+    ],
+    "first_party_domains": [
+      "ahrefs.com"
+    ],
+    "backup_links": [
+      {
+        "url": "https://ahrefs.com/api/pricing",
+        "why": "Ahrefs developer and API overview page containing authentication, endpoints, and MCP documentation links."
+      }
+    ],
+    "notes": "The documentation mentions a full machine-readable spec for every endpoint, API keys, and MCP support. | contradiction auth_detail: kept 'API keys created and managed for REST API access; OAuth 2.0 authorization for Ahrefs Connect integration program.', second said 'API key required for requests, created and managed in account settings.' | contradiction access_cost_note: kept 'Requires an Enterprise plan or specific API pricing tier.', second said 'Available on eligible paid plans with a monthly API unit allowance and pay-as-you-go options.' | contradiction one_liner: kept 'Access Ahrefs marketing and search data through REST API and developer tools.', second said 'Access Ahrefs marketing and search data through REST APIs, developer tools, and MCP.'",
+    "run_id": "20260723T053916Z",
+    "composio_supports": "yes",
+    "composio_auth_scheme": "api_key",
+    "agrees_with_composio": "yes"
+  },
+  {
+    "app_name": "Firecrawl",
+    "category": "Data, SEO and Scraping",
+    "one_liner": "Programmatic web scraping, crawling, and search API with AI agent and Model Context Protocol support.",
+    "business_type": "infra_usage_based",
+    "docs_access": "public",
+    "auth_primary": "api_key",
+    "auth_detail": "Authorization: Bearer header using an API key from the Firecrawl dashboard.",
+    "access_tier": "self_serve_free",
+    "access_cost_note": "Free plan available with paid tiers and usage-based API credits.",
+    "api_type": "rest",
+    "has_openapi_spec": "yes",
+    "needs_instance_url": "no",
+    "has_webhooks": "yes",
+    "mcp_exists": "official_open",
+    "is_open_source": "no",
+    "evidence": {
+      "one_liner": "https://docs.firecrawl.dev/api-reference/v2-introduction",
+      "business_type_supported": "https://docs.firecrawl.dev/api-reference/v2-introduction",
+      "docs_access": "https://docs.firecrawl.dev/api-reference/v2-introduction",
+      "auth_primary": "https://docs.firecrawl.dev/api-reference/v2-introduction",
+      "auth_detail": "https://docs.firecrawl.dev/api-reference/v2-introduction",
+      "access_tier": "https://www.firecrawl.dev/pricing",
+      "access_cost_note": "https://www.firecrawl.dev/pricing",
+      "api_type": "https://docs.firecrawl.dev/api-reference/v2-introduction",
+      "has_openapi_spec": "https://docs.firecrawl.dev/api-reference/endpoint/crawl-params-preview.md",
+      "needs_instance_url": "https://docs.firecrawl.dev/api-reference/v2-introduction",
+      "has_webhooks": "https://www.firecrawl.dev/blog/launch-week-i-day-7-webhooks",
+      "mcp_exists": "https://docs.firecrawl.dev/use-cases/developers-mcp",
+      "is_open_source": "https://docs.firecrawl.dev/use-cases/developers-mcp"
+    },
+    "confidence": {
+      "one_liner": "high",
+      "business_type_supported": "high",
+      "docs_access": "high",
+      "auth_primary": "high",
+      "auth_detail": "high",
+      "access_tier": "high",
+      "access_cost_note": "high",
+      "api_type": "high",
+      "has_openapi_spec": "high",
+      "needs_instance_url": "high",
+      "has_webhooks": "high",
+      "mcp_exists": "high",
+      "is_open_source": "med"
+    },
+    "flags": [
+      "second_round_used"
+    ],
+    "sources_fetched": [
+      "https://docs.firecrawl.dev/api-reference/v2-introduction",
+      "https://www.firecrawl.dev/pricing",
+      "https://docs.firecrawl.dev/api-reference/endpoint/crawl-params-preview.md",
+      "https://docs.firecrawl.dev/use-cases/developers-mcp",
+      "https://www.firecrawl.dev/blog/launch-week-i-day-7-webhooks"
+    ],
+    "first_party_domains": [
+      "firecrawl.dev",
+      "docs.firecrawl.dev"
+    ],
+    "backup_links": [
+      {
+        "url": "https://github.com/firecrawl/firecrawl",
+        "why": "Official GitHub repository for Firecrawl SDKs and API usage examples"
+      },
+      {
+        "url": "https://www.eesel.ai/blog/firecrawl-pricing",
+        "why": "Detailed breakdown of Firecrawl credit-based pricing tiers and plans"
+      }
+    ],
+    "notes": "Firecrawl provides a cloud API and an official MCP server. Self-hosting options exist on GitHub but the cloud hosted path is classified per instructions. | contradiction auth_detail: kept 'Authorization: Bearer header using an API key from the Firecrawl dashboard.', second said 'Authorization header with Bearer token (fc-YOUR-API-KEY)' | contradiction access_cost_note: kept 'Free plan available with paid tiers and usage-based API credits.', second said 'Free plan available with no credit card required, plus tiered paid plans.' | contradiction one_liner: kept 'Programmatic web scraping, crawling, and search API with AI agent and Model Context Protocol support.', second said 'Programmatic web scraping, crawling, and search API for AI agents and developers.'",
+    "run_id": "20260723T054331Z",
+    "composio_supports": "yes",
+    "composio_auth_scheme": "api_key",
+    "agrees_with_composio": "yes"
+  },
+  {
+    "app_name": "Notion",
+    "category": "Productivity and Project Management",
+    "one_liner": "Connect AI tools, scripts, and workflows to Notion workspaces using APIs, OAuth, and MCP.",
+    "business_type": "saas_seat_based",
+    "docs_access": "public",
+    "auth_primary": "oauth2",
+    "auth_detail": "Bearer tokens sent via HTTP Authorization header; supports OAuth 2.0, internal connection static tokens, and personal access tokens (PATs).",
+    "access_tier": "self_serve_free",
+    "access_cost_note": "Free workspace signup allows creating integrations and using the API.",
+    "api_type": "rest",
+    "has_openapi_spec": "unknown",
+    "needs_instance_url": "no",
+    "has_webhooks": "yes",
+    "mcp_exists": "official_open",
+    "is_open_source": "no",
+    "evidence": {
+      "one_liner": "https://developers.notion.com",
+      "business_type_supported": "https://www.notion.com/pricing",
+      "docs_access": "https://developers.notion.com/reference/authentication",
+      "auth_primary": "https://developers.notion.com/reference/authentication",
+      "auth_detail": "https://developers.notion.com/reference/authentication",
+      "access_tier": "https://www.notion.com/pricing",
+      "access_cost_note": "https://www.notion.com/pricing",
+      "api_type": "https://developers.notion.com",
+      "needs_instance_url": "https://developers.notion.com/reference/authentication",
+      "has_webhooks": "https://developers.notion.com",
+      "mcp_exists": "https://developers.notion.com/guides/mcp/overview",
+      "is_open_source": "https://developers.notion.com/reference/authentication"
+    },
+    "confidence": {
+      "one_liner": "high",
+      "business_type_supported": "high",
+      "docs_access": "high",
+      "auth_primary": "high",
+      "auth_detail": "high",
+      "access_tier": "high",
+      "access_cost_note": "high",
+      "api_type": "high",
+      "has_openapi_spec": "high",
+      "needs_instance_url": "high",
+      "has_webhooks": "high",
+      "mcp_exists": "high",
+      "is_open_source": "high"
+    },
+    "flags": [
+      "chunked",
+      "thin_content",
+      "second_round_used",
+      "unsupported_absence"
+    ],
+    "sources_fetched": [
+      "https://developers.notion.com/reference/authentication",
+      "https://www.notion.com/pricing",
+      "https://developers.notion.com",
+      "https://developers.notion.com/guides/mcp/overview",
+      "https://www.notion.com/connections/spexdock"
+    ],
+    "first_party_domains": [
+      "developers.notion.com",
+      "notion.com"
+    ],
+    "backup_links": [
+      {
+        "url": "https://developers.notion.com/guides/mcp/get-started-with-mcp",
+        "why": "Official guide on connecting AI tools to Notion via the Model Context Protocol (MCP)."
+      }
+    ],
+    "notes": "Notion supports internal connections, public OAuth 2.0 connections, and personal access tokens (PATs) using Bearer token authentication. It also provides an official hosted MCP server. | contradiction auth_detail: kept 'Bearer tokens sent via HTTP Authorization header; supports OAuth 2.0, internal connection static tokens, and personal access tokens (PATs).', second said 'Uses HTTP Authorization header with Bearer tokens (Internal connections, Personal Access Tokens, or OAuth 2.0 for public connections).' | contradiction access_cost_note: kept 'Free workspace signup allows creating integrations and using the API.', second said 'Free tier available; paid plans unlock advanced features like SCIM API.' | contradiction one_liner: kept 'Connect AI tools, scripts, and workflows to Notion workspaces using APIs, OAuth, and MCP.', second said 'Notion API enables programmatic access to pages, databases, users, and content.'",
+    "run_id": "20260723T054331Z",
+    "composio_supports": "yes",
+    "composio_auth_scheme": "oauth2",
+    "agrees_with_composio": "yes"
+  },
+  {
+    "app_name": "DealCloud",
+    "category": "CRM and Sales",
+    "one_liner": "DealCloud provides a REST API and MCP server for CRM data integration.",
+    "business_type": "enterprise_sales",
+    "docs_access": "public",
+    "auth_primary": "oauth2",
+    "auth_detail": "Client ID and client secret used to obtain tokens via authentication endpoints.",
+    "access_tier": "partner_gated",
+    "access_cost_note": "Requires a DealCloud license / partnership, specifically mentioning DealCloud with Celeste license for MCP features.",
+    "api_type": "rest",
+    "has_openapi_spec": "yes",
+    "needs_instance_url": "yes",
+    "has_webhooks": "unknown",
+    "mcp_exists": "official_gated",
+    "is_open_source": "no",
+    "evidence": {
+      "one_liner": "https://api.docs.dealcloud.com/docs",
+      "business_type_supported": "https://api.docs.dealcloud.com/docs",
+      "docs_access": "https://api.docs.dealcloud.com/docs",
+      "auth_primary": "https://api.docs.dealcloud.com/sdk/python/authentication",
+      "auth_detail": "https://api.docs.dealcloud.com/sdk/python/authentication",
+      "access_tier": "https://api.docs.dealcloud.com/releases",
+      "access_cost_note": "https://api.docs.dealcloud.com/releases",
+      "api_type": "https://api.docs.dealcloud.com/docs",
+      "has_openapi_spec": "https://api.docs.dealcloud.com/docs",
+      "needs_instance_url": "https://api.docs.dealcloud.com/sdk/python/authentication",
+      "has_webhooks": "https://api.docs.dealcloud.com/docs",
+      "mcp_exists": "https://api.docs.dealcloud.com/releases",
+      "is_open_source": "https://api.docs.dealcloud.com/sdk/python/authentication"
+    },
+    "confidence": {
+      "one_liner": "high",
+      "business_type_supported": "high",
+      "docs_access": "high",
+      "auth_primary": "high",
+      "auth_detail": "high",
+      "access_tier": "high",
+      "access_cost_note": "high",
+      "api_type": "high",
+      "has_openapi_spec": "high",
+      "needs_instance_url": "high",
+      "has_webhooks": "high",
+      "mcp_exists": "high",
+      "is_open_source": "high"
+    },
+    "flags": [
+      "chunked",
+      "thin_content",
+      "second_round_used"
+    ],
+    "sources_fetched": [
+      "https://api.docs.dealcloud.com/sdk/python/authentication",
+      "https://api.docs.dealcloud.com/docs",
+      "https://api.docs.dealcloud.com/releases",
+      "https://api.docs.dealcloud.com/guides/making_requests_on_behalf_of_users"
+    ],
+    "first_party_domains": [
+      "api.docs.dealcloud.com",
+      "dealcloud.com"
+    ],
+    "backup_links": [
+      {
+        "url": "https://api.docs.dealcloud.com/docs/data",
+        "why": "Data APIs reference documentation and endpoint overview"
+      }
+    ],
+    "notes": "DealCloud exposes a REST API with Swagger documentation and an official MCP server gated behind specific licensing (DealCloud with Celeste). | contradiction access_tier: kept 'partner_gated', second said 'approval_gated' | contradiction auth_detail: kept 'Client ID and client secret used to obtain tokens via authentication endpoints.', second said 'Uses client_id and client_secret to obtain bearer tokens, with optional AS-USER header for user proxying.' | contradiction access_cost_note: kept 'Requires a DealCloud license / partnership, specifically mentioning DealCloud with Celeste license for MCP features.', second said 'Requires a DealCloud enterprise license.' | contradiction one_liner: kept 'DealCloud provides a REST API and MCP server for CRM data integration.', second said 'DealCloud provides a REST API and Python SDK for CRM data integration and user proxying.'",
+    "run_id": "20260723T054722Z",
+    "composio_supports": "no",
+    "composio_auth_scheme": null,
+    "agrees_with_composio": "n_a"
+  },
+  {
+    "app_name": "Shopify",
+    "category": "Ecommerce",
+    "one_liner": "Ecommerce commerce platform providing REST, GraphQL APIs, webhooks, and MCP servers.",
+    "business_type": "commerce_platform",
+    "docs_access": "public",
+    "auth_primary": "oauth2",
+    "auth_detail": "Uses OAuth 2.0, session tokens, access tokens, and API keys via headers such as X-Shopify-Storefront-Access-Token and Shopify-Storefront-Private-Token.",
+    "access_tier": "self_serve_free",
+    "access_cost_note": "Requires creating a developer or merchant account on Shopify, with free signup for developers.",
+    "api_type": "both",
+    "has_openapi_spec": "unknown",
+    "needs_instance_url": "yes",
+    "has_webhooks": "yes",
+    "mcp_exists": "official_open",
+    "is_open_source": "no",
+    "evidence": {
+      "one_liner": "https://shopify.dev/docs/api/usage/authentication",
+      "business_type_supported": "https://shopify.dev/docs/api/usage/authentication",
+      "docs_access": "https://shopify.dev/docs/api/usage/authentication",
+      "auth_primary": "https://shopify.dev/docs/api/usage/authentication",
+      "auth_detail": "https://shopify.dev/docs/api/usage/authentication",
+      "access_tier": "https://shopify.dev/docs/api/usage/authentication",
+      "access_cost_note": "https://shopify.dev/docs/api/usage/authentication",
+      "api_type": "https://shopify.dev/docs/api",
+      "has_openapi_spec": "https://shopify.dev/docs/api",
+      "needs_instance_url": "https://shopify.dev/docs/api/usage/authentication",
+      "has_webhooks": "https://shopify.dev/docs/api/webhooks/latest",
+      "mcp_exists": "https://shopify.dev/docs/apps/build/storefront-mcp",
+      "is_open_source": "https://shopify.dev/docs/api/usage/authentication"
+    },
+    "confidence": {
+      "one_liner": "high",
+      "business_type_supported": "high",
+      "docs_access": "high",
+      "auth_primary": "high",
+      "auth_detail": "high",
+      "access_tier": "med",
+      "access_cost_note": "high",
+      "api_type": "high",
+      "has_openapi_spec": "low",
+      "needs_instance_url": "high",
+      "has_webhooks": "high",
+      "mcp_exists": "high",
+      "is_open_source": "high"
+    },
+    "flags": [
+      "chunked",
+      "thin_content"
+    ],
+    "sources_fetched": [
+      "https://shopify.dev/docs/api/usage/authentication",
+      "https://shopify.dev/docs/api",
+      "https://shopify.dev/docs/api/webhooks/latest",
+      "https://shopify.dev/docs/apps/build/storefront-mcp"
+    ],
+    "first_party_domains": [
+      "shopify.dev"
+    ],
+    "backup_links": [
+      {
+        "url": "https://apidog.com/blog/shopify-api",
+        "why": "Tutorial and overview of Shopify API keys, authentication, and getting started."
+      }
+    ],
+    "notes": "Shopify provides both GraphQL and Admin REST APIs, webhooks, and official Model Context Protocol (MCP) servers for storefronts and customer accounts.",
+    "run_id": "20260723T054722Z",
+    "composio_supports": "yes",
+    "composio_auth_scheme": "api_key",
+    "agrees_with_composio": "disagrees"
+  }
+]

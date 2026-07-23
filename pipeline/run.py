@@ -23,7 +23,7 @@ from pipeline.graph import process_one_app  # noqa: E402
 from pipeline.tavily_client import CreditTracker, TavilyClient  # noqa: E402
 
 DATA = ROOT / "data"
-SLEEP_BETWEEN_APPS = 2.0
+SLEEP_BETWEEN_APPS = 8.0
 BATCH_SIZE = 25
 
 
@@ -38,6 +38,18 @@ def next_run_path(explicit: str | None = None) -> Path:
         candidate = DATA / f"run_v{n}.json"
         if not candidate.exists():
             return candidate
+        n += 1
+
+
+def latest_run_path() -> Path | None:
+    """Highest existing data/run_vN.json, or None."""
+    latest: Path | None = None
+    n = 1
+    while True:
+        candidate = DATA / f"run_v{n}.json"
+        if not candidate.exists():
+            return latest
+        latest = candidate
         n += 1
 
 
@@ -111,14 +123,25 @@ def main(argv: list[str] | None = None) -> int:
     if args.limit is not None:
         apps = apps[: args.limit]
 
-    run_path = next_run_path(args.run)
     if args.run:
         run_path = Path(args.run)
         if not run_path.is_absolute():
             run_path = DATA / run_path
+    elif args.resume:
+        # Continue the latest run file so apps_10 then apps_100 share one file.
+        run_path = latest_run_path() or next_run_path()
+    else:
+        run_path = next_run_path()
 
     rows = load_run(run_path) if (args.resume or run_path.exists()) else []
-    done_names = {r.get("app_name") for r in rows}
+    # Treat schema_fail / pipeline exceptions as not done so --resume retries them.
+    done_names = {
+        r.get("app_name")
+        for r in rows
+        if r.get("app_name")
+        and "schema_fail" not in (r.get("flags") or [])
+        and not str(r.get("notes") or "").startswith("pipeline exception")
+    }
     pending = (
         [a for a in apps if a["app_name"] not in done_names]
         if args.resume or rows
@@ -126,6 +149,8 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     print(f"[run] apps={len(apps)} pending={len(pending)} out={run_path}")
+    if done_names:
+        print(f"[run] already filled ({len(done_names)}): {sorted(done_names)}")
 
     catalog = load_catalog()
     tracker = CreditTracker()
@@ -146,6 +171,8 @@ def main(argv: list[str] | None = None) -> int:
         row = process_one_app(
             app, tv, run_id=run_id, composio_fields=composio, verbose=verbose
         )
+        # Replace any prior failed row for this app
+        rows = [r for r in rows if r.get("app_name") != app["app_name"]]
         rows.append(row)
         save_run(run_path, rows)
         processed += 1

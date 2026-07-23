@@ -28,6 +28,8 @@ Never collapse these.
 | `business_type` | infra_usage_based · saas_seat_based · ad_platform · data_vendor · commerce_platform · enterprise_sales · ai_native |
 | `docs_access` | public · login_required · on_request · none_found |
 | `access_tier` | open · self_serve_free · self_serve_trial · card_required · plan_gated · approval_gated · partner_gated · no_public_access |
+
+`access_tier` notes: **open** = no account and no credentials required at all. **self_serve_free** = free signup required, no card, credentials in minutes. “No setup fees” / pay-as-you-go with signup required is **self_serve_free**, not open.
 | `auth_primary` | api_key · pat · oauth2 · oauth1 · basic · jwt_keypair · hmac_signed · aws_sigv4 · session_only · none · unknown |
 | `api_type` | rest · graphql · both · cli_only · none · unknown |
 | `mcp_exists` | official_open · official_gated · community · none · unknown |
@@ -56,7 +58,7 @@ Never collapse these.
 
 `app_name`, `category`, `run_id`, `evidence{}`, `confidence{}`, `flags[]`, `sources_fetched[]`, `first_party_domains[]`
 
-Flags include: unsourced · thin_content · no_docs_found · schema_fail · chunked · retry_used · hint_unconfirmed · second_round_used · business_type_unconfirmed
+Flags include: unsourced · thin_content · no_docs_found · schema_fail · chunked · retry_used · hint_unconfirmed · second_round_used · business_type_unconfirmed · unsupported_absence
 
 ## Post-run cross-check
 

@@ -2,7 +2,7 @@
 
 Research pipeline that classifies apps for Composio toolkit **buildability** (credential access gates), plus a static findings page.
 
-**AMENDMENT_3 + Call 1 agent fix:** Tavily-only web access (via Composio SDK, with direct Tavily fallback). **Call 1 is a Gemini agent with `tavily_search` bound (max 4 tool calls)** — business-type prior drives queries. Call 2 is a no-tools extractor. Stage 2 derives verdicts later. Gemini 2.5 Flash-Lite for all LLM calls.
+**AMENDMENT_3 + Call 1 agent fix:** Tavily-only web access (via Composio SDK, with direct Tavily fallback). **Call 1 is a Gemini agent with `tavily_search` bound (max 6 tool calls)** — business-type prior drives queries; scored fields (access_tier, auth) take budget priority. Call 2 is a no-tools extractor. Stage 2 derives verdicts later. Gemini Flash-Lite for all LLM calls.
 
 ## Setup
 
@@ -22,6 +22,7 @@ cp .env.example .env
 | `COMPOSIO_USER_ID` | Composio entity / user id with Tavily connected | `tools.execute(..., user_id=...)` |
 | `COMPOSIO_AUTH_CONFIG_ID` | Auth config for the Tavily connection (e.g. `ac_...`) | Stored for connection setup / debugging |
 | `COMPOSIO_CONNECTED_ACCOUNT_ID` | Optional explicit connected-account id | Passed to `tools.execute` when set |
+| `COMPOSIO_TAVILY_VERSION` | Composio dashboard toolkit version (e.g. `v20260717_00`) | Passed as `version=` to `tools.execute` (not `"latest"`) |
 | `TAVILY_API_KEY` | [Tavily](https://tavily.com) free tier | Connect Tavily inside Composio; also direct fallback |
 | `COMPOSIO_SHEETS_ID` | Optional | `--export-sheets` only |
 
@@ -32,7 +33,7 @@ cp .env.example .env
 3. Set all env vars in `.env`.
 4. Verify: `python -m pipeline.run --app Stripe --verbose`
 
-If Composio’s Tavily toolkit cannot batch-extract, the client falls back to `https://api.tavily.com` automatically and prints `provider=direct`. That fallback is intentional and documented here.
+If Composio’s Tavily toolkit execute fails, the client prints a loud WARN, records `provider=direct` plus the error in `debug/{app}.json`, and falls back to `https://api.tavily.com`. It must not report `provider=composio` when Composio did not execute.
 
 Firecrawl is **removed**. Do not set `FIRECRAWL_API_KEY`.
 
@@ -43,7 +44,10 @@ Firecrawl is **removed**. Do not set `FIRECRAWL_API_KEY`.
 ```bash
 python -m pipeline.run --app Stripe --verbose   # one app, no run file write
 python -m pipeline.run --apps apps_10.json --resume
+# → data/run_v1.json (skips apps already in that file)
+
 python -m pipeline.run --apps apps_100.json --resume --batch-size 25
+# resumes the same latest run_vN.json — already-filled apps (e.g. the 10 + Stripe) are not re-run
 ```
 
 Writes `data/run_vN.json` with Gemini facts + audit + composio cross-check.  
