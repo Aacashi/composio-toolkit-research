@@ -9,7 +9,7 @@ from typing import Any, Optional
 from pipeline.clean import assemble_extract_input, chunk_text, clean_page
 from pipeline.debug_log import DebugRecorder
 from pipeline.domains import merge_discovered_domains, seed_first_party_domains
-from pipeline.gemini_client import chunk_filter_call, generate_json
+from pipeline.gemini_client import chunk_filter_call, discover_with_search_agent, generate_json
 from pipeline.guard import apply_guard
 from pipeline.tavily_client import TavilyClient
 from schema import ALLOWED_VALUES, GEMINI_FACT_FIELDS, PROMPTS_VERSION, ExtractResult
@@ -37,6 +37,10 @@ def node_discover(
     *,
     failure_reason: Optional[str] = None,
 ) -> dict[str, Any]:
+    """
+    Call 1 AGENT: Gemini with Tavily search tool bound.
+    Gemini decides every query (business-type prior drives search). Max 4 tool calls.
+    """
     dbg.stage_start("discover")
     seeded = seed_first_party_domains(app)
     system = (PROMPTS / "call1_discover.txt").read_text(encoding="utf-8")
@@ -48,36 +52,28 @@ def node_discover(
         f"hint_url: {app.get('hint_url')}",
         f"hint_note: {app.get('hint_note')}",
         f"hint_raw: {app.get('hint_raw')}",
-        f"SEEDED first_party_domains: {json.dumps(seeded)}",
+        f"SEEDED first_party_domains (you may only ADD to this list): {json.dumps(seeded)}",
+        "",
+        "You have the tavily_search tool. Classify business_type first (as a prior), then "
+        "call tavily_search yourself with queries that prior implies. Max 4 searches. "
+        "When done, return the final JSON object described in the system prompt.",
     ]
     if failure_reason:
         user_parts.append(
             f"PREVIOUS FETCH FAILED: {failure_reason}. "
-            "Propose alternative first-party auth/pricing/api URLs."
+            "Search again for alternative first-party auth/pricing/api URLs."
         )
     if app.get("hint_type") == "docs_url" and app.get("hint_url"):
         user_parts.append(
-            f"STRONG SEED docs_url: {app['hint_url']} — treat as likely api_index_url or auth_url."
+            f"STRONG SEED docs_url: {app['hint_url']} — treat as likely api_index_url or auth_url; "
+            "still search for pricing/access and auth if needed."
         )
     if app.get("hint_type") == "note" and app.get("hint_note"):
         user_parts.append(
             f"NOTE (context only, NEVER an answer): {app['hint_note']}"
         )
 
-    observations: list[str] = []
-    tool_calls = 0
-    queries = _discover_queries(app)
-    for q in queries:
-        if tool_calls >= 4:
-            break
-        results = tv.search(q, limit=5)
-        tool_calls += 1
-        dbg.add_search(q, results)
-        observations.append(f"SEARCH q={q!r} -> {json.dumps(results)[:3000]}")
-
-    user_parts.append("OBSERVATIONS:\n" + "\n".join(observations))
     user_prompt = "\n".join(user_parts)
-    full_prompt = f"{system}\n\n---\n\n{user_prompt}"
 
     cache_payload = {
         "prompts_version": PROMPTS_VERSION,
@@ -87,47 +83,46 @@ def node_discover(
         "hint_raw": app.get("hint_raw"),
         "seeded_domains": seeded,
         "failure_reason": failure_reason,
-        "observations_hash": str(hash(tuple(observations))),
+        # Do NOT include search results — agent chooses queries live
     }
 
-    data = generate_json(
+    def _search(query: str, max_results: int) -> list[dict[str, Any]]:
+        return tv.search(query, limit=max_results)
+
+    def _on_search(query: str, results: list[dict[str, Any]]) -> None:
+        dbg.add_search(query, results)
+
+    data, tool_calls, trace = discover_with_search_agent(
         app_name=app["app_name"],
-        call_name="discover" + ("_retry" if failure_reason else ""),
         system_prompt=system,
         user_prompt=user_prompt,
         cache_payload=cache_payload,
-        temperature=0.0,
+        search_fn=_search,
+        max_tool_calls=4,
+        on_search=_on_search,
     )
-    dbg.add_gemini("discover", full_prompt, data)
+    dbg.add_gemini(
+        "discover_agent",
+        user_prompt,
+        {"result": data, "tool_calls": tool_calls, "trace_queries": [t.get("query") for t in trace]},
+    )
 
     discovered_domains = data.get("first_party_domains") or []
     data["first_party_domains"] = merge_discovered_domains(seeded, discovered_domains)
     data["_seeded_domains"] = seeded
     data["_tool_calls"] = tool_calls
     data["app_name"] = app["app_name"]
-    dbg.stage_end("discover", business_type=data.get("business_type"), urls={
-        "auth": data.get("auth_url"),
-        "pricing": data.get("pricing_url"),
-        "api_index": data.get("api_index_url"),
-    })
+    dbg.stage_end(
+        "discover",
+        business_type=data.get("business_type"),
+        tool_calls=tool_calls,
+        urls={
+            "auth": data.get("auth_url"),
+            "pricing": data.get("pricing_url"),
+            "api_index": data.get("api_index_url"),
+        },
+    )
     return data
-
-
-def _discover_queries(app: dict) -> list[str]:
-    name = app["app_name"]
-    domain = ""
-    if app.get("hint_url"):
-        from urllib.parse import urlparse
-
-        domain = urlparse(app["hint_url"]).hostname or ""
-    qs = [
-        f"{name} API authentication documentation",
-        f"{name} API pricing access tier",
-        f"{name} API reference OpenAPI",
-    ]
-    if domain:
-        qs.insert(0, f"site:{domain} API authentication")
-    return qs[:4]
 
 
 def node_fetch(

@@ -2,7 +2,7 @@
 
 Research pipeline that classifies apps for Composio toolkit **buildability** (credential access gates), plus a static findings page.
 
-**AMENDMENT_3:** Tavily-only web access (via Composio SDK, with direct Tavily fallback). Stage 1 writes facts; Stage 2 derives verdicts later. Gemini 2.5 Flash-Lite for all LLM calls.
+**AMENDMENT_3 + Call 1 agent fix:** Tavily-only web access (via Composio SDK, with direct Tavily fallback). **Call 1 is a Gemini agent with `tavily_search` bound (max 4 tool calls)** — business-type prior drives queries. Call 2 is a no-tools extractor. Stage 2 derives verdicts later. Gemini 2.5 Flash-Lite for all LLM calls.
 
 ## Setup
 
