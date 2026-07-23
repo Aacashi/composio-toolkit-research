@@ -1,4 +1,4 @@
-"""CLI — Stage 1 pipeline (facts only). AMENDMENT_3."""
+"""CLI — Stage 1 pipeline (facts only). AMENDMENT_3 / v2b harden."""
 
 from __future__ import annotations
 
@@ -19,8 +19,13 @@ from crosscheck.composio_check import (  # noqa: E402
     load_catalog,
     maybe_export_sheets,
 )
+from pipeline.gemini_client import RateLimitExhausted  # noqa: E402
 from pipeline.graph import process_one_app  # noqa: E402
-from pipeline.tavily_client import CreditTracker, TavilyClient  # noqa: E402
+from pipeline.tavily_client import (  # noqa: E402
+    CreditTracker,
+    TavilyClient,
+    TavilyRateLimitExhausted,
+)
 
 DATA = ROOT / "data"
 SLEEP_BETWEEN_APPS = 10.0
@@ -77,6 +82,19 @@ def save_run(path: Path, rows: list[dict]) -> None:
     path.write_text(json.dumps(rows, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
+def _is_rate_limit_exc(exc: BaseException) -> bool:
+    if isinstance(exc, (RateLimitExhausted, TavilyRateLimitExhausted)):
+        return True
+    msg = str(exc).lower()
+    return (
+        "429" in msg
+        or "rate limit" in msg
+        or "resource_exhausted" in msg
+        or "quota" in msg
+        or "too many requests" in msg
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
     load_dotenv(ROOT / ".env")
     parser = argparse.ArgumentParser(description="Composio toolkit research — Stage 1")
@@ -100,7 +118,6 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     verbose = args.verbose or bool(args.app)
 
-    # Single-app dry mode
     if args.app:
         app = find_app(args.app)
         print(f"[run] single-app mode: {app['app_name']} (no run file write)")
@@ -109,12 +126,19 @@ def main(argv: list[str] | None = None) -> int:
         tv = TavilyClient(tracker=tracker, verbose=verbose)
         composio = attach_composio_to_row(app["app_name"], catalog)
         run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-        row = process_one_app(
-            app, tv, run_id=run_id, composio_fields=composio, verbose=verbose
-        )
+        try:
+            row = process_one_app(
+                app, tv, run_id=run_id, composio_fields=composio, verbose=verbose
+            )
+        except (RateLimitExhausted, TavilyRateLimitExhausted) as e:
+            print(f"[run] STOP rate limit: {e}")
+            return 2
         print("[run] RESULT (not saved):")
         print(json.dumps(row, indent=2, ensure_ascii=False)[:8000])
-        print(f"[run] credits app={tracker.per_app.get(app['app_name'], 0)} total={tracker.total}")
+        print(
+            f"[run] credits app={tracker.per_app.get(app['app_name'], 0)} "
+            f"total={tracker.total} flags={row.get('flags')}"
+        )
         print(f"[run] tavily provider={tv.mode}")
         return 0
 
@@ -128,13 +152,11 @@ def main(argv: list[str] | None = None) -> int:
         if not run_path.is_absolute():
             run_path = DATA / run_path
     elif args.resume:
-        # Continue the latest run file so apps_10 then apps_100 share one file.
         run_path = latest_run_path() or next_run_path()
     else:
         run_path = next_run_path()
 
     rows = load_run(run_path) if (args.resume or run_path.exists()) else []
-    # Treat schema_fail / pipeline exceptions as not done so --resume retries them.
     done_names = {
         r.get("app_name")
         for r in rows
@@ -158,6 +180,7 @@ def main(argv: list[str] | None = None) -> int:
     run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     apps_total = len(apps)
     processed = 0
+    stopped_rate_limit = False
 
     for i, app in enumerate(pending):
         if processed > 0:
@@ -168,17 +191,34 @@ def main(argv: list[str] | None = None) -> int:
 
         print(f"[run] ({i+1}/{len(pending)}) {app['app_name']}")
         composio = attach_composio_to_row(app["app_name"], catalog)
-        row = process_one_app(
-            app, tv, run_id=run_id, composio_fields=composio, verbose=verbose
-        )
-        # Replace any prior failed row for this app
+        try:
+            row = process_one_app(
+                app, tv, run_id=run_id, composio_fields=composio, verbose=verbose
+            )
+        except (RateLimitExhausted, TavilyRateLimitExhausted) as e:
+            print(f"[run] STOP rate limit after retries exhausted: {e}")
+            print(f"[run] partial save at {run_path} rows={len(rows)}")
+            stopped_rate_limit = True
+            break
+        except Exception as e:
+            if _is_rate_limit_exc(e):
+                print(f"[run] STOP rate-limit-like error: {e}")
+                print(f"[run] partial save at {run_path} rows={len(rows)}")
+                stopped_rate_limit = True
+                break
+            raise
+
         rows = [r for r in rows if r.get("app_name") != app["app_name"]]
         rows.append(row)
         save_run(run_path, rows)
         processed += 1
+        gemini_n = sum(1 for g in (getattr(row, "__dict__", {}) or ()))  # unused
+        _ = gemini_n
         print(
             f"[run] wrote {app['app_name']} credits_app="
-            f"{tracker.per_app.get(app['app_name'], 0)} total={tracker.total}"
+            f"{tracker.per_app.get(app['app_name'], 0)} total={tracker.total} "
+            f"flags={row.get('flags')} guard_applied={row.get('guard_applied')} "
+            f"tier={row.get('access_tier')}"
         )
 
         if i < len(pending) - 1:
@@ -190,7 +230,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.export_sheets:
         maybe_export_sheets(rows)
-    return 0
+    return 2 if stopped_rate_limit else 0
 
 
 if __name__ == "__main__":

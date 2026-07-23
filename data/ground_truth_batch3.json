@@ -1,0 +1,264 @@
+{
+  "description": "Ground truth batch 3. First-party sources preferred. Public/distributed integration path assumed.",
+  "scored_fields": [
+    "access_tier",
+    "auth_primary",
+    "api_type",
+    "mcp_exists"
+  ],
+  "secondary_fields": [
+    "business_type",
+    "docs_access",
+    "needs_instance_url",
+    "has_openapi_spec",
+    "has_webhooks",
+    "is_open_source"
+  ],
+  "low_confidence": {
+    "WooCommerce": "access_tier value self_hosted_or_open is outside the 9-value enum. Self-hosted plugin with no vendor gate, but each store still generates its own credentials. Decide whether to add a value, map to open, or handle self-hosted platforms separately.",
+    "systeme.io": "Webhook support not confirmed from first-party docs; one third-party source says webhooks are absent. Marked unknown.",
+    "Squarespace": "Sources differ on exactly which plan unlocks which API. First-party docs name Commerce Advanced for custom applications; help centre lists Transactions API on Core and above. plan_gated is certain, the specific tier is not.",
+    "Coda": "mcp_exists marked unknown; no official Coda MCP server confirmed from first-party sources.",
+    "Plain": "Own pricing page says 7-day trial, help centre article says 14-day. Both first-party. Trial exists either way."
+  },
+  "category_notes": {
+    "WooCommerce": "business_type open_source_platform is outside the 7-value enum, same issue as Mermaid CLI in batch 2. Self-hosted commerce platforms may need their own handling.",
+    "Otter AI": "Best example in the set of mcp_exists=official_gated. Official hosted MCP server, but the REST API itself requires an Enterprise plan and an account manager. Worth calling out in the findings: MCP availability does not imply API accessibility."
+  },
+  "rows": [
+    {
+      "app_name": "Plain",
+      "category": "Support and Helpdesk",
+      "business_type": "saas_seat_based",
+      "docs_access": "public",
+      "access_tier": "self_serve_trial",
+      "auth_primary": "api_key",
+      "api_type": "graphql",
+      "mcp_exists": "official_open",
+      "needs_instance_url": "no",
+      "has_openapi_spec": "no",
+      "has_webhooks": "yes",
+      "is_open_source": "no",
+      "evidence": {
+        "access_tier": "https://www.plain.com/pricing",
+        "auth_primary": "https://www.plain.com/docs/graphql/authentication",
+        "api_type": "https://www.plain.com/docs/graphql/introduction",
+        "mcp_exists": "https://www.plain.com/docs/mcp",
+        "has_webhooks": "https://www.plain.com/docs/webhooks"
+      },
+      "notes": "GraphQL only, no REST. Bearer API key created under Settings > Machine Users with fine-grained permissions; keys shown once. Own pricing page: start free, no credit card, 7-day trial (help centre elsewhere says 14). Official MCP server. Plain is built on the same GraphQL API it exposes, so API parity with the UI is complete.",
+      "labelled_by": "AI-assisted research against first-party sources; requires human spot-check",
+      "assumption": "public/distributed integration path"
+    },
+    {
+      "app_name": "Zoho Cliq",
+      "category": "Communications and Messaging",
+      "business_type": "saas_seat_based",
+      "docs_access": "public",
+      "access_tier": "self_serve_free",
+      "auth_primary": "oauth2",
+      "api_type": "rest",
+      "mcp_exists": "unknown",
+      "needs_instance_url": "yes",
+      "has_openapi_spec": "yes",
+      "has_webhooks": "yes",
+      "is_open_source": "no",
+      "evidence": {
+        "access_tier": "https://www.zoho.com/cliq/pricing.html",
+        "auth_primary": "https://www.zoho.com/cliq/help/restapi/v2/",
+        "api_type": "https://www.zoho.com/cliq/help/restapi/v3/introduction/",
+        "has_webhooks": "https://www.zoho.com/cliq/help/platform/"
+      },
+      "notes": "OAuth 2.0 only; register a client in Zoho Developer Console (self-serve, includes a Self Client option for server-side apps). Access token passed as a header, not a query param. Scoped per resource (Channels, Bots, Chats). Multiple data centres mean region-specific base URLs (.com/.in/.eu), so an instance or region field is required. Zoho Cliq has a free plan.",
+      "labelled_by": "AI-assisted research against first-party sources; requires human spot-check",
+      "assumption": "public/distributed integration path"
+    },
+    {
+      "app_name": "systeme.io",
+      "category": "Marketing, Ads, Email and Social",
+      "business_type": "saas_seat_based",
+      "docs_access": "public",
+      "access_tier": "self_serve_free",
+      "auth_primary": "api_key",
+      "api_type": "rest",
+      "mcp_exists": "official_open",
+      "needs_instance_url": "no",
+      "has_openapi_spec": "unknown",
+      "has_webhooks": "unknown",
+      "is_open_source": "no",
+      "evidence": {
+        "access_tier": "https://systeme.io/pricing",
+        "auth_primary": "https://help.systeme.io/article/2323-how-to-create-a-public-api-key-on-systeme-io",
+        "api_type": "https://developer.systeme.io/reference/api",
+        "mcp_exists": "https://mcp.systeme.io/mcp"
+      },
+      "notes": "API key generated under profile Settings > Public API keys, max 3 per account. Free plan never expires and needs no credit card; 2,000 contacts, all features. Official MCP server at mcp.systeme.io with its own X-MCP-Key auth, 90-day keys, max 2, works on the free plan. Webhook support unclear from first-party docs.",
+      "labelled_by": "AI-assisted research against first-party sources; requires human spot-check",
+      "assumption": "public/distributed integration path"
+    },
+    {
+      "app_name": "WooCommerce",
+      "category": "Ecommerce",
+      "business_type": "open_source_platform",
+      "docs_access": "public",
+      "access_tier": "self_hosted_or_open",
+      "auth_primary": "basic",
+      "api_type": "rest",
+      "mcp_exists": "unknown",
+      "needs_instance_url": "yes",
+      "has_openapi_spec": "no",
+      "has_webhooks": "yes",
+      "is_open_source": "yes",
+      "evidence": {
+        "access_tier": "https://woocommerce.com/document/woocommerce-rest-api/",
+        "auth_primary": "https://developer.woocommerce.com/docs/apis/rest-api/authentication/",
+        "api_type": "https://woocommerce.github.io/woocommerce-rest-api-docs/",
+        "has_webhooks": "https://woocommerce.com/document/webhooks/"
+      },
+      "notes": "Self-hosted WordPress plugin, free and open source. Consumer key and secret generated in WooCommerce > Settings > Advanced > REST API, then sent as HTTP Basic (key as username, secret as password) over SSL, or OAuth 1.0a one-legged for non-SSL sites. Requires the merchant's store URL. Read/Write/Read-Write scopes. NOTE: access_tier here is a boundary case - there is no vendor gate at all because the merchant self-hosts, but each connection still needs merchant-generated credentials.",
+      "labelled_by": "AI-assisted research against first-party sources; requires human spot-check",
+      "assumption": "public/distributed integration path"
+    },
+    {
+      "app_name": "BigCommerce",
+      "category": "Ecommerce",
+      "business_type": "commerce_platform",
+      "docs_access": "public",
+      "access_tier": "approval_gated",
+      "auth_primary": "pat",
+      "api_type": "both",
+      "mcp_exists": "unknown",
+      "needs_instance_url": "yes",
+      "has_openapi_spec": "yes",
+      "has_webhooks": "yes",
+      "is_open_source": "no",
+      "evidence": {
+        "access_tier": "https://developer.bigcommerce.com/docs/integrations/apps/guide/auth",
+        "auth_primary": "https://developer.bigcommerce.com/docs/start/authentication",
+        "api_type": "https://developer.bigcommerce.com/docs/start/authentication/api-accounts",
+        "has_openapi_spec": "https://developer.bigcommerce.com/docs/rest-management",
+        "has_webhooks": "https://developer.bigcommerce.com/docs/integrations/webhooks"
+      },
+      "notes": "X-Auth-Token header with access tokens from store-level API accounts; free trial store available for self-serve testing. Public/single-click apps must be approved by BigCommerce before other stores can install, and only then can they mint tokens on behalf of store owners. Store hash required in every URL. REST Management plus GraphQL Admin and Storefront APIs. Legacy Basic auth retired for new stores.",
+      "labelled_by": "AI-assisted research against first-party sources; requires human spot-check",
+      "assumption": "public/distributed integration path"
+    },
+    {
+      "app_name": "Squarespace",
+      "category": "Ecommerce",
+      "business_type": "commerce_platform",
+      "docs_access": "public",
+      "access_tier": "plan_gated",
+      "auth_primary": "api_key",
+      "api_type": "rest",
+      "mcp_exists": "unknown",
+      "needs_instance_url": "no",
+      "has_openapi_spec": "unknown",
+      "has_webhooks": "yes",
+      "is_open_source": "no",
+      "evidence": {
+        "access_tier": "https://developers.squarespace.com/commerce-apis/authentication-and-permissions",
+        "auth_primary": "https://developers.squarespace.com/commerce-apis/authentication-and-permissions",
+        "api_type": "https://developers.squarespace.com/commerce-apis/overview",
+        "has_webhooks": "https://developers.squarespace.com/commerce-apis/webhook-subscriptions"
+      },
+      "notes": "Own docs: with the Commerce Advanced plan you can develop a custom application. API keys generated under Settings > Advanced > Developer API Keys with per-API permissions, shown once. Squarespace Extensions (public apps) must use OAuth and require registering as an OAuth client. Different APIs unlock at different tiers - Forms on Business and above, Orders/Inventory/Transactions on Commerce Advanced. No API on free or entry plans.",
+      "labelled_by": "AI-assisted research against first-party sources; requires human spot-check",
+      "assumption": "public/distributed integration path"
+    },
+    {
+      "app_name": "Bright Data",
+      "category": "Data, SEO and Scraping",
+      "business_type": "data_vendor",
+      "docs_access": "public",
+      "access_tier": "card_required",
+      "auth_primary": "api_key",
+      "api_type": "rest",
+      "mcp_exists": "official_open",
+      "needs_instance_url": "no",
+      "has_openapi_spec": "yes",
+      "has_webhooks": "unknown",
+      "is_open_source": "no",
+      "evidence": {
+        "access_tier": "https://brightdata.com/pricing",
+        "auth_primary": "https://docs.brightdata.com/api-reference/authentication",
+        "api_type": "https://docs.brightdata.com/api-reference/authentication",
+        "mcp_exists": "https://brightdata.com/products/web-mcp",
+        "has_openapi_spec": "https://brightdata.com/blog/ai/bright-data-openapi-specs"
+      },
+      "notes": "Bearer API key created automatically on account creation; also supports Native Access via proxy username and password, billed identically. Official Web MCP server. OpenAPI specs published for SERP and Unlocker. Free trial exists but adding a payment method is a verification step to unlock bonus credits, and usage is charged per plan - hence card_required rather than self_serve_free.",
+      "labelled_by": "AI-assisted research against first-party sources; requires human spot-check",
+      "assumption": "public/distributed integration path"
+    },
+    {
+      "app_name": "Neo4j",
+      "category": "Developer, Infra and Data platforms",
+      "business_type": "infra_usage_based",
+      "docs_access": "public",
+      "access_tier": "card_required",
+      "auth_primary": "oauth2",
+      "api_type": "rest",
+      "mcp_exists": "official_open",
+      "needs_instance_url": "yes",
+      "has_openapi_spec": "yes",
+      "has_webhooks": "unknown",
+      "is_open_source": "yes",
+      "evidence": {
+        "access_tier": "https://neo4j.com/docs/aura/platform/api/authentication/",
+        "auth_primary": "https://neo4j.com/docs/aura/platform/api/authentication/",
+        "api_type": "https://neo4j.com/docs/aura/api/overview/",
+        "mcp_exists": "https://neo4j.com/blog/genai/introducing-mcp-for-aura/",
+        "has_openapi_spec": "https://neo4j.com/docs/aura/platform/api/specification/"
+      },
+      "notes": "Aura cloud path classified. OAuth2 client credentials: client ID and secret sent as HTTP Basic to api.neo4j.io/oauth/token, returning a 1-hour bearer token. KEY FINDING from Neo4j's own docs: Free and Professional users must enter billing information before they can create API credentials - so the free tier does not yield API access without a card. Hosted MCP included at no extra cost on Free, Professional and Business Critical. Neo4j core is open source; Aura is the managed service.",
+      "labelled_by": "AI-assisted research against first-party sources; requires human spot-check",
+      "assumption": "public/distributed integration path"
+    },
+    {
+      "app_name": "Coda",
+      "category": "Productivity and Project Management",
+      "business_type": "saas_seat_based",
+      "docs_access": "public",
+      "access_tier": "self_serve_free",
+      "auth_primary": "api_key",
+      "api_type": "rest",
+      "mcp_exists": "unknown",
+      "needs_instance_url": "no",
+      "has_openapi_spec": "unknown",
+      "has_webhooks": "yes",
+      "is_open_source": "no",
+      "evidence": {
+        "access_tier": "https://coda.io/pricing",
+        "auth_primary": "https://coda.io/developers/apis/v1",
+        "api_type": "https://coda.io/developers/apis/v1",
+        "has_webhooks": "https://coda.io/developers/apis/v1"
+      },
+      "notes": "Bearer API token generated from account settings, sent in the Authorization header. REST at coda.io/apis/v1 plus a separate Admin API at coda.io/apis/admin/v1 for Enterprise. Free workspaces exist and can generate tokens. Packs SDK is the route for building distributable integrations; publishing a Pack to the gallery involves review, but direct API use does not.",
+      "labelled_by": "AI-assisted research against first-party sources; requires human spot-check",
+      "assumption": "public/distributed integration path"
+    },
+    {
+      "app_name": "Otter AI",
+      "category": "AI, Research and Media-native",
+      "business_type": "ai_native",
+      "docs_access": "public",
+      "access_tier": "partner_gated",
+      "auth_primary": "oauth2",
+      "api_type": "rest",
+      "mcp_exists": "official_gated",
+      "needs_instance_url": "no",
+      "has_openapi_spec": "no",
+      "has_webhooks": "unknown",
+      "is_open_source": "no",
+      "evidence": {
+        "access_tier": "https://help.otter.ai/hc/en-us/articles/35287607569687-Otter-MCP-Server",
+        "auth_primary": "https://help.otter.ai/hc/en-us/articles/35287607569687-Otter-MCP-Server",
+        "mcp_exists": "https://otter.ai/blog/otter-for-enterprise-connect-ai-to-ai-with-otters-mcp",
+        "api_type": "https://help.otter.ai/hc/en-us/articles/35287607569687-Otter-MCP-Server"
+      },
+      "notes": "STRONG FINDING. Otter's own help centre states plainly that they do not currently have a public API key. The public REST API is in beta and requires an Enterprise plan - token generated under Enterprise Settings > API, arranged via an account manager. Meanwhile the MCP server IS official and hosted at mcp.otter.ai/mcp with OAuth and granular permissions. So official MCP exists while the underlying API is partner-gated: the clearest example in the set of MCP presence not implying API accessibility. Community MCP servers exist but use email/password against the private API and require 2FA to be disabled.",
+      "labelled_by": "AI-assisted research against first-party sources; requires human spot-check",
+      "assumption": "public/distributed integration path"
+    }
+  ]
+}

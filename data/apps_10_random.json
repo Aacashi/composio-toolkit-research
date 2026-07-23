@@ -1,0 +1,92 @@
+[
+  {
+    "id": 4,
+    "app_name": "Attio",
+    "category": "CRM and Sales",
+    "hint_raw": "attio.com",
+    "hint_url": "https://attio.com",
+    "hint_type": "domain",
+    "hint_note": null
+  },
+  {
+    "id": 14,
+    "app_name": "Front",
+    "category": "Support and Helpdesk",
+    "hint_raw": "front.com",
+    "hint_url": "https://front.com",
+    "hint_type": "domain",
+    "hint_note": null
+  },
+  {
+    "id": 15,
+    "app_name": "Pylon",
+    "category": "Support and Helpdesk",
+    "hint_raw": "usepylon.com",
+    "hint_url": "https://usepylon.com",
+    "hint_type": "domain",
+    "hint_note": null
+  },
+  {
+    "id": 18,
+    "app_name": "Help Scout",
+    "category": "Support and Helpdesk",
+    "hint_raw": "helpscout.com",
+    "hint_url": "https://helpscout.com",
+    "hint_type": "domain",
+    "hint_note": null
+  },
+  {
+    "id": 29,
+    "app_name": "Aircall",
+    "category": "Communications and Messaging",
+    "hint_raw": "aircall.io",
+    "hint_url": "https://aircall.io",
+    "hint_type": "domain",
+    "hint_note": null
+  },
+  {
+    "id": 32,
+    "app_name": "Meta Ads",
+    "category": "Marketing, Ads, Email and Social",
+    "hint_raw": "developers.facebook.com/docs/marketing-apis",
+    "hint_url": "https://developers.facebook.com/docs/marketing-apis",
+    "hint_type": "docs_url",
+    "hint_note": null
+  },
+  {
+    "id": 36,
+    "app_name": "Klaviyo",
+    "category": "Marketing, Ads, Email and Social",
+    "hint_raw": "developers.klaviyo.com",
+    "hint_url": "https://developers.klaviyo.com",
+    "hint_type": "docs_url",
+    "hint_note": null
+  },
+  {
+    "id": 82,
+    "app_name": "Plaid",
+    "category": "Finance and Fintech",
+    "hint_raw": "plaid.com/docs",
+    "hint_url": "https://plaid.com/docs",
+    "hint_type": "docs_url",
+    "hint_note": null
+  },
+  {
+    "id": 87,
+    "app_name": "Xero",
+    "category": "Finance and Fintech",
+    "hint_raw": "developer.xero.com",
+    "hint_url": "https://developer.xero.com",
+    "hint_type": "docs_url",
+    "hint_note": null
+  },
+  {
+    "id": 95,
+    "app_name": "Reducto",
+    "category": "AI, Research and Media-native",
+    "hint_raw": "reducto.ai (document parsing)",
+    "hint_url": "https://reducto.ai",
+    "hint_type": "note",
+    "hint_note": "document parsing"
+  }
+]

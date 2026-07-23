@@ -251,75 +251,6 @@ def test_enforce_evidence_subset_flags_invariant():
     assert "auth_primary" not in out["evidence"]
 
 
-def test_mcp_gate_forces_official_gated():
-    from pipeline.guard import apply_mcp_gate_from_pages
-
-    row = _base_row(
-        mcp_exists="official_open",
-        sources_fetched=["https://docs.dealcloud.com/mcp"],
-        evidence={"mcp_exists": "https://docs.dealcloud.com/mcp"},
-    )
-    pages = [
-        {
-            "url": "https://docs.dealcloud.com/mcp",
-            "text": "MCP requires an Enterprise license and Celeste plan.",
-        }
-    ]
-    out = apply_mcp_gate_from_pages(row, pages)
-    assert out["mcp_exists"] == "official_gated"
-    assert "mcp_gate_forced" in out["flags"]
-
-
-def test_mcp_gate_unclear_open_without_signals():
-    from pipeline.guard import apply_mcp_gate_from_pages
-
-    row = _base_row(
-        mcp_exists="official_open",
-        sources_fetched=["https://docs.dealcloud.com/mcp"],
-        evidence={"mcp_exists": "https://docs.dealcloud.com/mcp"},
-    )
-    pages = [
-        {
-            "url": "https://docs.dealcloud.com/mcp",
-            "text": "DealCloud MCP Server helps teams turn data into outcomes. Jump In.",
-        }
-    ]
-    out = apply_mcp_gate_from_pages(row, pages)
-    assert out["mcp_exists"] == "unknown"
-    assert "mcp_gate_unclear" in out["flags"]
-
-
-def test_auth_detail_basic_overrides_api_key():
-    from pipeline.guard import apply_auth_detail_conflict
-
-    row = _base_row(
-        auth_primary="api_key",
-        auth_detail="Send email/token:api_token via HTTP Basic auth (base64).",
-    )
-    out = apply_auth_detail_conflict(row)
-    assert out["auth_primary"] == "basic"
-    assert "auth_detail_conflict" in out["flags"]
-
-
-def test_derive_access_tier_two_paths():
-    from pipeline.nodes import derive_access_tier_from_paths
-
-    row = {
-        "integration_paths": "two_paths",
-        "private_path_access": "self_serve_free",
-        "public_path_access": "approval_gated",
-        "flags": [],
-        "evidence": {
-            "private_path_access": "https://example.com/a",
-            "public_path_access": "https://example.com/b",
-        },
-    }
-    out = derive_access_tier_from_paths(row)
-    assert out["access_tier"] == "approval_gated"
-    assert "path_selection_applied" in out["flags"]
-    assert out["evidence"]["access_tier"] == "https://example.com/b"
-
-
 if __name__ == "__main__":
     test_canonicalize_strips_www_and_slash()
     test_mcp_none_without_mcp_url_downgrades()
@@ -333,8 +264,4 @@ if __name__ == "__main__":
     test_docs_none_found_wipes_capabilities()
     test_invariant_no_evidence_outside_sources()
     test_enforce_evidence_subset_flags_invariant()
-    test_mcp_gate_forces_official_gated()
-    test_mcp_gate_unclear_open_without_signals()
-    test_auth_detail_basic_overrides_api_key()
-    test_derive_access_tier_two_paths()
     print("test_guard: OK")

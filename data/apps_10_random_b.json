@@ -1,0 +1,92 @@
+[
+  {
+    "id": 17,
+    "app_name": "Plain",
+    "category": "Support and Helpdesk",
+    "hint_raw": "plain.com",
+    "hint_url": "https://plain.com",
+    "hint_type": "domain",
+    "hint_note": null
+  },
+  {
+    "id": 23,
+    "app_name": "Zoho Cliq",
+    "category": "Communications and Messaging",
+    "hint_raw": "zoho.com/cliq",
+    "hint_url": "https://zoho.com/cliq",
+    "hint_type": "domain",
+    "hint_note": null
+  },
+  {
+    "id": 37,
+    "app_name": "systeme.io",
+    "category": "Marketing, Ads, Email and Social",
+    "hint_raw": "systeme.io (funnel builder)",
+    "hint_url": "https://systeme.io",
+    "hint_type": "note",
+    "hint_note": "funnel builder"
+  },
+  {
+    "id": 42,
+    "app_name": "WooCommerce",
+    "category": "Ecommerce",
+    "hint_raw": "woocommerce.com/document/woocommerce-rest-api",
+    "hint_url": "https://woocommerce.com/document/woocommerce-rest-api",
+    "hint_type": "docs_url",
+    "hint_note": null
+  },
+  {
+    "id": 43,
+    "app_name": "BigCommerce",
+    "category": "Ecommerce",
+    "hint_raw": "developer.bigcommerce.com",
+    "hint_url": "https://developer.bigcommerce.com",
+    "hint_type": "docs_url",
+    "hint_note": null
+  },
+  {
+    "id": 46,
+    "app_name": "Squarespace",
+    "category": "Ecommerce",
+    "hint_raw": "developers.squarespace.com",
+    "hint_url": "https://developers.squarespace.com",
+    "hint_type": "docs_url",
+    "hint_note": null
+  },
+  {
+    "id": 57,
+    "app_name": "Bright Data",
+    "category": "Data, SEO and Scraping",
+    "hint_raw": "brightdata.com",
+    "hint_url": "https://brightdata.com",
+    "hint_type": "domain",
+    "hint_note": null
+  },
+  {
+    "id": 66,
+    "app_name": "Neo4j",
+    "category": "Developer, Infra and Data platforms",
+    "hint_raw": "neo4j.com/docs/api",
+    "hint_url": "https://neo4j.com/docs/api",
+    "hint_type": "docs_url",
+    "hint_note": null
+  },
+  {
+    "id": 78,
+    "app_name": "Coda",
+    "category": "Productivity and Project Management",
+    "hint_raw": "coda.io/developers",
+    "hint_url": "https://coda.io/developers",
+    "hint_type": "docs_url",
+    "hint_note": null
+  },
+  {
+    "id": 92,
+    "app_name": "Otter AI",
+    "category": "AI, Research and Media-native",
+    "hint_raw": "help.otter.ai (MCP server)",
+    "hint_url": "https://help.otter.ai",
+    "hint_type": "note",
+    "hint_note": "MCP server"
+  }
+]

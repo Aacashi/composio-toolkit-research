@@ -8,7 +8,7 @@ from typing import Any, Optional
 from pydantic import BaseModel, Field
 
 # Bump whenever prompts/ or this schema's Gemini surface changes.
-PROMPTS_VERSION = "v10"
+PROMPTS_VERSION = "v2b"
 
 
 class BusinessType(str, Enum):
@@ -63,6 +63,7 @@ class AccessTierRollup(str, Enum):
     open = "open"
     paid = "paid"
     gated = "gated"
+    unknown = "unknown"
 
 
 class ApiType(str, Enum):

@@ -1,0 +1,260 @@
+{
+  "description": "Ground truth batch 2. First-party sources preferred. Public/distributed integration path assumed.",
+  "scored_fields": [
+    "access_tier",
+    "auth_primary",
+    "api_type",
+    "mcp_exists"
+  ],
+  "secondary_fields": [
+    "business_type",
+    "docs_access",
+    "needs_instance_url",
+    "has_openapi_spec",
+    "has_webhooks",
+    "is_open_source"
+  ],
+  "low_confidence": {
+    "higgsfield": "No clean first-party API reference found; auth_primary and api_type inferred from the CLI page and third-party sources. Treat as low confidence.",
+    "Pylon": "Own pricing page advertises a free trial; third-party sources claim no trial exists. Labelled self_serve_trial on first-party evidence.",
+    "Clay": "Free tier exists but API/webhook access is plan-tiered. plan_gated chosen on that basis.",
+    "Vonage": "DEMO mode is a real restriction lifted by adding credit, not by approval. self_serve_free chosen because working credentials and testing are available immediately."
+  },
+  "category_notes": {
+    "Mermaid CLI": "Not a connector candidate. Local CLI, no vendor, no auth, no hosted API. business_type open_source_tool is outside the 7-value enum and should be handled as a separate case or mapped to unknown."
+  },
+  "rows": [
+    {
+      "app_name": "Pylon",
+      "category": "Support and Helpdesk",
+      "business_type": "saas_seat_based",
+      "docs_access": "public",
+      "access_tier": "self_serve_trial",
+      "auth_primary": "pat",
+      "api_type": "rest",
+      "mcp_exists": "official_open",
+      "needs_instance_url": "no",
+      "has_openapi_spec": "yes",
+      "has_webhooks": "yes",
+      "is_open_source": "no",
+      "evidence": {
+        "access_tier": "https://www.usepylon.com/pricing",
+        "auth_primary": "https://docs.usepylon.com/pylon-docs/developer/api/authentication",
+        "api_type": "https://docs.usepylon.com/pylon-docs/developer/api/api-reference",
+        "mcp_exists": "https://docs.usepylon.com/pylon-docs/developer/mcp",
+        "has_webhooks": "https://docs.usepylon.com/pylon-docs/developer/api/api-reference"
+      },
+      "notes": "Bearer API token from the Pylon dashboard; only Admin users can create tokens. Docs on GitBook (vendor-controlled). Own pricing page says start a free trial; no free plan, 3-seat minimum, annual billing. Third-party sources dispute whether the trial is real.",
+      "labelled_by": "AI-assisted research against first-party sources; requires human spot-check",
+      "assumption": "public/distributed integration path"
+    },
+    {
+      "app_name": "Vonage",
+      "category": "Communications and Messaging",
+      "business_type": "infra_usage_based",
+      "docs_access": "public",
+      "access_tier": "self_serve_free",
+      "auth_primary": "basic",
+      "api_type": "rest",
+      "mcp_exists": "official_open",
+      "needs_instance_url": "no",
+      "has_openapi_spec": "yes",
+      "has_webhooks": "yes",
+      "is_open_source": "no",
+      "evidence": {
+        "access_tier": "https://developer.vonage.com/en/account/guides/dashboard-management",
+        "auth_primary": "https://developer.vonage.com/en/getting-started/concepts/authentication",
+        "api_type": "https://developer.vonage.com/en/getting-started/overview",
+        "has_openapi_spec": "https://developer.vonage.com/en/getting-started/overview",
+        "has_webhooks": "https://developer.vonage.com/en/getting-started/overview"
+      },
+      "notes": "API key and secret Base64-encoded in the Authorization header, i.e. HTTP Basic. Newer APIs use JWT with Applications. Free EUR 2 test credit on signup; account starts in DEMO mode capped at 10 destination numbers; add credit to exit demo. All Vonage APIs publish OpenAPI descriptions.",
+      "labelled_by": "AI-assisted research against first-party sources; requires human spot-check",
+      "assumption": "public/distributed integration path"
+    },
+    {
+      "app_name": "Meta Ads",
+      "category": "Marketing, Ads, Email and Social",
+      "business_type": "ad_platform",
+      "docs_access": "public",
+      "access_tier": "approval_gated",
+      "auth_primary": "oauth2",
+      "api_type": "rest",
+      "mcp_exists": "none",
+      "needs_instance_url": "no",
+      "has_openapi_spec": "no",
+      "has_webhooks": "yes",
+      "is_open_source": "no",
+      "evidence": {
+        "access_tier": "https://developers.facebook.com/docs/marketing-apis/get-started",
+        "auth_primary": "https://developers.facebook.com/docs/marketing-apis/get-started",
+        "api_type": "https://developers.facebook.com/docs/marketing-apis",
+        "has_webhooks": "https://developers.facebook.com/docs/graph-api/webhooks"
+      },
+      "notes": "Token free and immediate but Standard Access is development-mode only. Advanced Access for ads_management requires App Review plus Business Verification. Days to weeks, outside the developer's control.",
+      "labelled_by": "AI-assisted research against first-party sources; requires human spot-check",
+      "assumption": "public/distributed integration path"
+    },
+    {
+      "app_name": "Gumroad",
+      "category": "Ecommerce",
+      "business_type": "commerce_platform",
+      "docs_access": "public",
+      "access_tier": "self_serve_free",
+      "auth_primary": "oauth2",
+      "api_type": "rest",
+      "mcp_exists": "none",
+      "needs_instance_url": "no",
+      "has_openapi_spec": "no",
+      "has_webhooks": "yes",
+      "is_open_source": "no",
+      "evidence": {
+        "access_tier": "https://gumroad.com/api",
+        "auth_primary": "https://gumroad.com/api",
+        "api_type": "https://gumroad.com/api",
+        "has_webhooks": "https://gumroad.com/api"
+      },
+      "notes": "OAuth2. Create an application at gumroad.com/oauth/applications, get application id and secret, then Generate access token directly on the application page. No app review documented. Free creator signup. Webhooks via resource subscriptions.",
+      "labelled_by": "AI-assisted research against first-party sources; requires human spot-check",
+      "assumption": "public/distributed integration path"
+    },
+    {
+      "app_name": "DataForSEO",
+      "category": "Data, SEO and Scraping",
+      "business_type": "data_vendor",
+      "docs_access": "public",
+      "access_tier": "self_serve_free",
+      "auth_primary": "basic",
+      "api_type": "rest",
+      "mcp_exists": "unknown",
+      "needs_instance_url": "no",
+      "has_openapi_spec": "unknown",
+      "has_webhooks": "no",
+      "is_open_source": "no",
+      "evidence": {
+        "access_tier": "https://dataforseo.com/apis/serp-api/pricing",
+        "auth_primary": "https://docs.dataforseo.com/v3/auth/",
+        "api_type": "https://docs.dataforseo.com/v3/"
+      },
+      "notes": "Own pricing page: no payment required to start, unlimited trial period, USD 1 credit on registration, free Sandbox. USD 50 minimum payment for production. Basic auth using login email plus a separate API password, Base64 encoded. Pay-as-you-go, no subscription.",
+      "labelled_by": "AI-assisted research against first-party sources; requires human spot-check",
+      "assumption": "public/distributed integration path"
+    },
+    {
+      "app_name": "Clay",
+      "category": "Data, SEO and Scraping",
+      "business_type": "data_vendor",
+      "docs_access": "public",
+      "access_tier": "plan_gated",
+      "auth_primary": "api_key",
+      "api_type": "rest",
+      "mcp_exists": "unknown",
+      "needs_instance_url": "no",
+      "has_openapi_spec": "unknown",
+      "has_webhooks": "yes",
+      "is_open_source": "no",
+      "evidence": {
+        "access_tier": "https://www.clay.com/pricing",
+        "auth_primary": "https://university.clay.com/docs/guide-find-clay-api-key",
+        "api_type": "https://university.clay.com/docs",
+        "has_webhooks": "https://university.clay.com/docs"
+      },
+      "notes": "Bearer API key from Settings. Public API and CLI documented. Free tier with credits exists, but API access for webhooks requires Explorer plan or above and CRM integrations require Pro or above; integration depth is tied to plan tier. Key prefix clay_ent_ suggests enterprise scoping.",
+      "labelled_by": "AI-assisted research against first-party sources; requires human spot-check",
+      "assumption": "public/distributed integration path"
+    },
+    {
+      "app_name": "Sentry",
+      "category": "Developer, Infra and Data platforms",
+      "business_type": "infra_usage_based",
+      "docs_access": "public",
+      "access_tier": "self_serve_free",
+      "auth_primary": "pat",
+      "api_type": "rest",
+      "mcp_exists": "official_open",
+      "needs_instance_url": "no",
+      "has_openapi_spec": "yes",
+      "has_webhooks": "yes",
+      "is_open_source": "yes",
+      "evidence": {
+        "access_tier": "https://sentry.io/pricing/",
+        "auth_primary": "https://docs.sentry.io/api/auth/",
+        "api_type": "https://docs.sentry.io/api/",
+        "has_openapi_spec": "https://docs.sentry.io/api/",
+        "has_webhooks": "https://docs.sentry.io/organization/integrations/integration-platform/webhooks/"
+      },
+      "notes": "Bearer auth tokens with sntrys_ prefix. Personal tokens from User Settings, org tokens via an internal integration, both scoped. OAuth2 available for third-party apps. Free developer tier. Open source, self-hostable. Public integrations require a publishing step but the API itself does not.",
+      "labelled_by": "AI-assisted research against first-party sources; requires human spot-check",
+      "assumption": "public/distributed integration path"
+    },
+    {
+      "app_name": "QuickBooks",
+      "category": "Finance and Fintech",
+      "business_type": "saas_seat_based",
+      "docs_access": "public",
+      "access_tier": "approval_gated",
+      "auth_primary": "oauth2",
+      "api_type": "rest",
+      "mcp_exists": "unknown",
+      "needs_instance_url": "no",
+      "has_openapi_spec": "unknown",
+      "has_webhooks": "yes",
+      "is_open_source": "no",
+      "evidence": {
+        "access_tier": "https://developer.intuit.com/app/developer/qbo/docs/go-live",
+        "auth_primary": "https://developer.intuit.com/app/developer/qbo/docs/develop/authentication-and-authorization/oauth-2.0",
+        "api_type": "https://developer.intuit.com/app/developer/qbo/docs/api/accounting/most-commonly-used/account",
+        "has_webhooks": "https://developer.intuit.com/app/developer/qbo/docs/develop/webhooks"
+      },
+      "notes": "OAuth2 authorization code flow only; no API keys or basic auth. Development keys work in sandbox immediately. Production keys plus a completed Intuit review are required to go live. Intuit App Partner Program tiers (Builder free up to 500k CorePlus calls/month; Gold and Platinum unlock Premium APIs).",
+      "labelled_by": "AI-assisted research against first-party sources; requires human spot-check",
+      "assumption": "public/distributed integration path"
+    },
+    {
+      "app_name": "higgsfield",
+      "category": "AI, Research and Media-native",
+      "business_type": "ai_native",
+      "docs_access": "public",
+      "access_tier": "plan_gated",
+      "auth_primary": "api_key",
+      "api_type": "rest",
+      "mcp_exists": "official_open",
+      "needs_instance_url": "no",
+      "has_openapi_spec": "unknown",
+      "has_webhooks": "unknown",
+      "is_open_source": "no",
+      "evidence": {
+        "access_tier": "https://higgsfield.ai/pricing",
+        "auth_primary": "https://higgsfield.ai/cli",
+        "api_type": "https://higgsfield.ai/cli",
+        "mcp_exists": "https://higgsfield.ai/cli"
+      },
+      "notes": "CLI installed via npm i -g @higgsfield/cli, auth via higgsfield auth login. MCP available alongside the web UI. API access gated to specific plan tiers. Free plan exists with limited credits; free access otherwise comes via time-limited social giveaways. LOW CONFIDENCE: no clean first-party API reference surfaced; most detail is third-party.",
+      "labelled_by": "AI-assisted research against first-party sources; requires human spot-check",
+      "assumption": "public/distributed integration path"
+    },
+    {
+      "app_name": "Mermaid CLI",
+      "category": "AI, Research and Media-native",
+      "business_type": "open_source_tool",
+      "docs_access": "public",
+      "access_tier": "open",
+      "auth_primary": "none",
+      "api_type": "cli_only",
+      "mcp_exists": "none",
+      "needs_instance_url": "no",
+      "has_openapi_spec": "no",
+      "has_webhooks": "no",
+      "is_open_source": "yes",
+      "evidence": {
+        "access_tier": "https://github.com/mermaid-js/mermaid-cli",
+        "auth_primary": "https://github.com/mermaid-js/mermaid-cli",
+        "api_type": "https://github.com/mermaid-js/mermaid-cli",
+        "docs_access": "https://github.com/mermaid-js/mermaid-cli"
+      },
+      "notes": "CATEGORY ERROR for a connector catalogue. Local command-line tool installed via npm; mmdc takes a .mmd file and outputs SVG/PNG/PDF. No vendor, no hosted service, no auth, no account. MIT licensed. A Node.js programmatic API exists but it is a local library, not a remote API. Not a connector candidate.",
+      "labelled_by": "AI-assisted research against first-party sources; requires human spot-check",
+      "assumption": "public/distributed integration path"
+    }
+  ]
+}

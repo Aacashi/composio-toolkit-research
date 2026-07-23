@@ -108,14 +108,20 @@ def derive_verdict(row: dict[str, Any]) -> dict[str, Any]:
         blocker_type = BlockerType.unknown.value
         blocker = BLOCKER_TEXT["unknown"]
 
-    rollup = rollup_access_tier(access_tier)
-    if rollup is None:
-        if buildability == Buildability.easy_win.value:
-            rollup = AccessTierRollup.open.value
-        elif buildability == Buildability.easy_but_paid.value:
-            rollup = AccessTierRollup.paid.value
-        else:
-            rollup = AccessTierRollup.gated.value
+    # Honest unknown: do not bury unknown access_tier inside gated.
+    if (access_tier or "unknown") == "unknown":
+        rollup = AccessTierRollup.unknown.value
+    else:
+        rollup = rollup_access_tier(access_tier)
+        if rollup is None:
+            if buildability == Buildability.easy_win.value:
+                rollup = AccessTierRollup.open.value
+            elif buildability == Buildability.easy_but_paid.value:
+                rollup = AccessTierRollup.paid.value
+            elif buildability == Buildability.unknown.value:
+                rollup = AccessTierRollup.unknown.value
+            else:
+                rollup = AccessTierRollup.gated.value
 
     row["access_tier_rollup"] = rollup
     row["buildability"] = buildability

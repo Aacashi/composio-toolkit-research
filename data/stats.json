@@ -1,0 +1,851 @@
+{
+  "n": 100,
+  "description": "Rules-engine counts from final.json — not ML clustering.",
+  "headline": {
+    "easy_win": 50,
+    "needs_review": 33,
+    "needs_outreach": 3,
+    "blocked": 4,
+    "easy_but_paid": 2,
+    "buildability_unknown": 8,
+    "access_tier_unknown": 10,
+    "most_common_blocker": "vendor_review",
+    "most_common_blocker_count": 33
+  },
+  "A_auth_dominates": [
+    {
+      "value": "oauth2",
+      "count": 50,
+      "pct_of_100": 50.0
+    },
+    {
+      "value": "api_key",
+      "count": 31,
+      "pct_of_100": 31.0
+    },
+    {
+      "value": "basic",
+      "count": 9,
+      "pct_of_100": 9.0
+    },
+    {
+      "value": "unknown",
+      "count": 7,
+      "pct_of_100": 7.0
+    },
+    {
+      "value": "pat",
+      "count": 1,
+      "pct_of_100": 1.0
+    },
+    {
+      "value": "jwt_keypair",
+      "count": 1,
+      "pct_of_100": 1.0
+    },
+    {
+      "value": "none",
+      "count": 1,
+      "pct_of_100": 1.0
+    }
+  ],
+  "B_category_rollup": {
+    "rows": [
+      {
+        "category": "CRM and Sales",
+        "open": 4,
+        "paid": 1,
+        "gated": 5,
+        "unknown": 0,
+        "total": 10,
+        "gated_share": 0.5,
+        "open_share": 0.4
+      },
+      {
+        "category": "Support and Helpdesk",
+        "open": 3,
+        "paid": 1,
+        "gated": 6,
+        "unknown": 0,
+        "total": 10,
+        "gated_share": 0.6,
+        "open_share": 0.3
+      },
+      {
+        "category": "Communications and Messaging",
+        "open": 7,
+        "paid": 0,
+        "gated": 1,
+        "unknown": 2,
+        "total": 10,
+        "gated_share": 0.1,
+        "open_share": 0.7
+      },
+      {
+        "category": "Marketing, Ads, Email and Social",
+        "open": 4,
+        "paid": 0,
+        "gated": 5,
+        "unknown": 1,
+        "total": 10,
+        "gated_share": 0.5,
+        "open_share": 0.4
+      },
+      {
+        "category": "Ecommerce",
+        "open": 1,
+        "paid": 0,
+        "gated": 6,
+        "unknown": 3,
+        "total": 10,
+        "gated_share": 0.6,
+        "open_share": 0.1
+      },
+      {
+        "category": "Data, SEO and Scraping",
+        "open": 9,
+        "paid": 0,
+        "gated": 1,
+        "unknown": 0,
+        "total": 10,
+        "gated_share": 0.1,
+        "open_share": 0.9
+      },
+      {
+        "category": "Developer, Infra and Data platforms",
+        "open": 4,
+        "paid": 0,
+        "gated": 6,
+        "unknown": 0,
+        "total": 10,
+        "gated_share": 0.6,
+        "open_share": 0.4
+      },
+      {
+        "category": "Productivity and Project Management",
+        "open": 6,
+        "paid": 0,
+        "gated": 4,
+        "unknown": 0,
+        "total": 10,
+        "gated_share": 0.4,
+        "open_share": 0.6
+      },
+      {
+        "category": "Finance and Fintech",
+        "open": 7,
+        "paid": 0,
+        "gated": 1,
+        "unknown": 2,
+        "total": 10,
+        "gated_share": 0.1,
+        "open_share": 0.7
+      },
+      {
+        "category": "AI, Research and Media-native",
+        "open": 6,
+        "paid": 0,
+        "gated": 2,
+        "unknown": 2,
+        "total": 10,
+        "gated_share": 0.2,
+        "open_share": 0.6
+      }
+    ],
+    "columns": [
+      "open",
+      "paid",
+      "gated",
+      "unknown"
+    ],
+    "most_gated_category": "Support and Helpdesk",
+    "most_gated_detail": "6/10",
+    "most_open_category": "Data, SEO and Scraping",
+    "most_open_detail": "9/10"
+  },
+  "C_blockers": [
+    {
+      "blocker_type": "none",
+      "count": 50,
+      "who_acts": "nobody",
+      "pct_of_100": 50.0
+    },
+    {
+      "blocker_type": "vendor_review",
+      "count": 33,
+      "who_acts": "vendor_human",
+      "pct_of_100": 33.0
+    },
+    {
+      "blocker_type": "unknown",
+      "count": 8,
+      "who_acts": "n_a",
+      "pct_of_100": 8.0
+    },
+    {
+      "blocker_type": "partnership",
+      "count": 3,
+      "who_acts": "composio_bd",
+      "pct_of_100": 3.0
+    },
+    {
+      "blocker_type": "payment",
+      "count": 2,
+      "who_acts": "composio_finance",
+      "pct_of_100": 2.0
+    },
+    {
+      "blocker_type": "no_docs",
+      "count": 2,
+      "who_acts": "n_a",
+      "pct_of_100": 2.0
+    },
+    {
+      "blocker_type": "no_api",
+      "count": 2,
+      "who_acts": "n_a",
+      "pct_of_100": 2.0
+    }
+  ],
+  "D_buildability": [
+    {
+      "verdict": "easy_win",
+      "count": 50,
+      "pct_of_100": 50.0,
+      "meaning": "self-serve credentials; engineer can start today"
+    },
+    {
+      "verdict": "easy_but_paid",
+      "count": 2,
+      "pct_of_100": 2.0,
+      "meaning": "credentials need a card or paid plan first"
+    },
+    {
+      "verdict": "needs_review",
+      "count": 33,
+      "pct_of_100": 33.0,
+      "meaning": "vendor must approve before production use"
+    },
+    {
+      "verdict": "needs_outreach",
+      "count": 3,
+      "pct_of_100": 3.0,
+      "meaning": "sales or partner conversation required"
+    },
+    {
+      "verdict": "blocked",
+      "count": 4,
+      "pct_of_100": 4.0,
+      "meaning": "no usable API or docs path for a toolkit"
+    },
+    {
+      "verdict": "unknown",
+      "count": 8,
+      "pct_of_100": 8.0,
+      "meaning": "insufficient first-party evidence to decide"
+    }
+  ],
+  "E_auth_x_buildability": {
+    "row_field": "auth_primary",
+    "col_field": "buildability",
+    "columns": [
+      "easy_win",
+      "easy_but_paid",
+      "needs_review",
+      "needs_outreach",
+      "blocked",
+      "unknown"
+    ],
+    "rows": [
+      {
+        "row": "oauth2",
+        "easy_win": 17,
+        "easy_but_paid": 0,
+        "needs_review": 29,
+        "needs_outreach": 1,
+        "blocked": 1,
+        "unknown": 2,
+        "total": 50
+      },
+      {
+        "row": "api_key",
+        "easy_win": 23,
+        "easy_but_paid": 2,
+        "needs_review": 3,
+        "needs_outreach": 2,
+        "blocked": 0,
+        "unknown": 1,
+        "total": 31
+      },
+      {
+        "row": "basic",
+        "easy_win": 8,
+        "easy_but_paid": 0,
+        "needs_review": 1,
+        "needs_outreach": 0,
+        "blocked": 0,
+        "unknown": 0,
+        "total": 9
+      },
+      {
+        "row": "unknown",
+        "easy_win": 0,
+        "easy_but_paid": 0,
+        "needs_review": 0,
+        "needs_outreach": 0,
+        "blocked": 2,
+        "unknown": 5,
+        "total": 7
+      },
+      {
+        "row": "none",
+        "easy_win": 0,
+        "easy_but_paid": 0,
+        "needs_review": 0,
+        "needs_outreach": 0,
+        "blocked": 1,
+        "unknown": 0,
+        "total": 1
+      },
+      {
+        "row": "pat",
+        "easy_win": 1,
+        "easy_but_paid": 0,
+        "needs_review": 0,
+        "needs_outreach": 0,
+        "blocked": 0,
+        "unknown": 0,
+        "total": 1
+      },
+      {
+        "row": "jwt_keypair",
+        "easy_win": 1,
+        "easy_but_paid": 0,
+        "needs_review": 0,
+        "needs_outreach": 0,
+        "blocked": 0,
+        "unknown": 0,
+        "total": 1
+      }
+    ],
+    "api_key_total": 31,
+    "api_key_not_easy_win": 8,
+    "oauth2_buildability_span": [
+      "blocked",
+      "easy_win",
+      "needs_outreach",
+      "needs_review",
+      "unknown"
+    ],
+    "oauth2_distinct_buildability_count": 5
+  },
+  "F_queues": {
+    "rows": [
+      {
+        "who_must_act": "nobody",
+        "count": 50,
+        "pct_of_100": 50.0,
+        "typical_wait": "none",
+        "work_kind": "engineering — start today"
+      },
+      {
+        "who_must_act": "composio_finance",
+        "count": 2,
+        "pct_of_100": 2.0,
+        "typical_wait": "hours/days",
+        "work_kind": "internal spend approval"
+      },
+      {
+        "who_must_act": "vendor_human",
+        "count": 33,
+        "pct_of_100": 33.0,
+        "typical_wait": "days/weeks",
+        "work_kind": "vendor review, outside our control"
+      },
+      {
+        "who_must_act": "composio_bd",
+        "count": 3,
+        "pct_of_100": 3.0,
+        "typical_wait": "weeks/months",
+        "work_kind": "business development"
+      },
+      {
+        "who_must_act": "n_a",
+        "count": 12,
+        "pct_of_100": 12.0,
+        "typical_wait": "n/a",
+        "work_kind": "blocked or unclassified — no unlock path"
+      }
+    ],
+    "engineering_ready_nobody": 50,
+    "non_engineering_queues": 38,
+    "takeaway": "50 of 100 are engineering-ready (nobody). 38 of 100 wait on vendor review, finance, or BD. 12 of 100 are n_a (blocked/unknown)."
+  },
+  "G_secondary": {
+    "has_openapi_spec": {
+      "yes": 47,
+      "no": 10,
+      "unknown": 43
+    },
+    "needs_instance_url": {
+      "yes": 25,
+      "no": 60,
+      "unknown": 15
+    },
+    "has_webhooks": {
+      "yes": 76,
+      "no": 4,
+      "unknown": 20
+    },
+    "mcp_exists": {
+      "official_open": 53,
+      "official_gated": 1,
+      "community": 0,
+      "none": 31,
+      "unknown": 15
+    },
+    "mcp_present": 54,
+    "mcp_present_not_easy_win": 25
+  },
+  "H_coverage": {
+    "access_tier_unknown": 10,
+    "access_tier_unknown_apps": [
+      "Aircall",
+      "Consensus",
+      "Gumroad",
+      "Lark (Larksuite)",
+      "Otter AI",
+      "Pinterest",
+      "PitchBook",
+      "Salesforce Commerce Cloud",
+      "fanbasis",
+      "iPayX"
+    ],
+    "auth_primary_unknown": 7,
+    "docs_access_none_found": 2,
+    "docs_none_apps": [
+      "PitchBook",
+      "fanbasis"
+    ],
+    "flag_counts": {
+      "no_docs_found": 1,
+      "no_auth_page_fetched": 9,
+      "no_pricing_page_fetched": 23,
+      "thin_content": 67,
+      "mcp_presence_no_url": 13,
+      "second_round_used": 68,
+      "second_round_preferred": 20,
+      "path_selection_applied": 43,
+      "retry_used": 4
+    },
+    "integration_paths_two_paths": 42
+  },
+  "I_deep_verification": {
+    "sample_apps": 30,
+    "sample_note": "Up to 30 apps across ground_truth.json + batch2 + batch3 (4 scored fields).",
+    "fields": {
+      "access_tier": {
+        "correct": 11,
+        "wrong": 16,
+        "honestly_unknown": 3,
+        "base": 30,
+        "correct_pct_of_base": 36.7
+      },
+      "auth_primary": {
+        "correct": 17,
+        "wrong": 10,
+        "honestly_unknown": 3,
+        "base": 30,
+        "correct_pct_of_base": 56.7
+      },
+      "api_type": {
+        "correct": 27,
+        "wrong": 1,
+        "honestly_unknown": 2,
+        "base": 30,
+        "correct_pct_of_base": 90.0
+      },
+      "mcp_exists": {
+        "correct": 18,
+        "wrong": 9,
+        "honestly_unknown": 3,
+        "base": 30,
+        "correct_pct_of_base": 60.0
+      }
+    },
+    "overall": {
+      "correct": 73,
+      "wrong": 36,
+      "honestly_unknown": 11,
+      "base": 120,
+      "correct_pct_of_base": 60.8
+    },
+    "misses": [
+      {
+        "app": "Twenty",
+        "field": "access_tier",
+        "expected": "self_serve_trial",
+        "actual": "self_serve_free",
+        "bucket": "wrong"
+      },
+      {
+        "app": "Zendesk",
+        "field": "access_tier",
+        "expected": "self_serve_trial",
+        "actual": "approval_gated",
+        "bucket": "wrong"
+      },
+      {
+        "app": "Ahrefs",
+        "field": "access_tier",
+        "expected": "plan_gated",
+        "actual": "partner_gated",
+        "bucket": "wrong"
+      },
+      {
+        "app": "Ahrefs",
+        "field": "mcp_exists",
+        "expected": "official_gated",
+        "actual": "official_open",
+        "bucket": "wrong"
+      },
+      {
+        "app": "Notion",
+        "field": "access_tier",
+        "expected": "approval_gated",
+        "actual": "self_serve_free",
+        "bucket": "wrong"
+      },
+      {
+        "app": "Notion",
+        "field": "auth_primary",
+        "expected": "oauth2",
+        "actual": "basic",
+        "bucket": "wrong"
+      },
+      {
+        "app": "Meta Ads",
+        "field": "mcp_exists",
+        "expected": "none",
+        "actual": "unknown",
+        "bucket": "honestly_unknown"
+      },
+      {
+        "app": "fanbasis",
+        "field": "access_tier",
+        "expected": "partner_gated",
+        "actual": "unknown",
+        "bucket": "honestly_unknown"
+      },
+      {
+        "app": "fanbasis",
+        "field": "auth_primary",
+        "expected": "api_key",
+        "actual": "unknown",
+        "bucket": "honestly_unknown"
+      },
+      {
+        "app": "fanbasis",
+        "field": "api_type",
+        "expected": "rest",
+        "actual": "unknown",
+        "bucket": "honestly_unknown"
+      },
+      {
+        "app": "DealCloud",
+        "field": "mcp_exists",
+        "expected": "official_gated",
+        "actual": "official_open",
+        "bucket": "wrong"
+      },
+      {
+        "app": "Pylon",
+        "field": "access_tier",
+        "expected": "self_serve_trial",
+        "actual": "plan_gated",
+        "bucket": "wrong"
+      },
+      {
+        "app": "Pylon",
+        "field": "auth_primary",
+        "expected": "pat",
+        "actual": "api_key",
+        "bucket": "wrong"
+      },
+      {
+        "app": "Vonage",
+        "field": "auth_primary",
+        "expected": "basic",
+        "actual": "api_key",
+        "bucket": "wrong"
+      },
+      {
+        "app": "Meta Ads",
+        "field": "mcp_exists",
+        "expected": "none",
+        "actual": "unknown",
+        "bucket": "honestly_unknown"
+      },
+      {
+        "app": "Gumroad",
+        "field": "access_tier",
+        "expected": "self_serve_free",
+        "actual": "unknown",
+        "bucket": "honestly_unknown"
+      },
+      {
+        "app": "Gumroad",
+        "field": "auth_primary",
+        "expected": "oauth2",
+        "actual": "unknown",
+        "bucket": "honestly_unknown"
+      },
+      {
+        "app": "Gumroad",
+        "field": "api_type",
+        "expected": "rest",
+        "actual": "unknown",
+        "bucket": "honestly_unknown"
+      },
+      {
+        "app": "DataForSEO",
+        "field": "mcp_exists",
+        "expected": "unknown",
+        "actual": "none",
+        "bucket": "wrong"
+      },
+      {
+        "app": "Clay",
+        "field": "access_tier",
+        "expected": "plan_gated",
+        "actual": "self_serve_free",
+        "bucket": "wrong"
+      },
+      {
+        "app": "Clay",
+        "field": "auth_primary",
+        "expected": "api_key",
+        "actual": "jwt_keypair",
+        "bucket": "wrong"
+      },
+      {
+        "app": "Clay",
+        "field": "mcp_exists",
+        "expected": "unknown",
+        "actual": "official_open",
+        "bucket": "wrong"
+      },
+      {
+        "app": "Sentry",
+        "field": "access_tier",
+        "expected": "self_serve_free",
+        "actual": "approval_gated",
+        "bucket": "wrong"
+      },
+      {
+        "app": "Sentry",
+        "field": "auth_primary",
+        "expected": "pat",
+        "actual": "oauth2",
+        "bucket": "wrong"
+      },
+      {
+        "app": "QuickBooks",
+        "field": "access_tier",
+        "expected": "approval_gated",
+        "actual": "self_serve_free",
+        "bucket": "wrong"
+      },
+      {
+        "app": "QuickBooks",
+        "field": "api_type",
+        "expected": "rest",
+        "actual": "both",
+        "bucket": "wrong"
+      },
+      {
+        "app": "QuickBooks",
+        "field": "mcp_exists",
+        "expected": "unknown",
+        "actual": "none",
+        "bucket": "wrong"
+      },
+      {
+        "app": "higgsfield",
+        "field": "access_tier",
+        "expected": "plan_gated",
+        "actual": "self_serve_free",
+        "bucket": "wrong"
+      },
+      {
+        "app": "Mermaid CLI",
+        "field": "access_tier",
+        "expected": "open",
+        "actual": "no_public_access",
+        "bucket": "wrong"
+      },
+      {
+        "app": "Plain",
+        "field": "access_tier",
+        "expected": "self_serve_trial",
+        "actual": "self_serve_free",
+        "bucket": "wrong"
+      },
+      {
+        "app": "Plain",
+        "field": "auth_primary",
+        "expected": "api_key",
+        "actual": "oauth2",
+        "bucket": "wrong"
+      },
+      {
+        "app": "Zoho Cliq",
+        "field": "access_tier",
+        "expected": "self_serve_free",
+        "actual": "approval_gated",
+        "bucket": "wrong"
+      },
+      {
+        "app": "Zoho Cliq",
+        "field": "mcp_exists",
+        "expected": "unknown",
+        "actual": "official_open",
+        "bucket": "wrong"
+      },
+      {
+        "app": "WooCommerce",
+        "field": "access_tier",
+        "expected": "self_hosted_or_open",
+        "actual": "self_serve_free",
+        "bucket": "wrong"
+      },
+      {
+        "app": "WooCommerce",
+        "field": "mcp_exists",
+        "expected": "unknown",
+        "actual": "official_open",
+        "bucket": "wrong"
+      },
+      {
+        "app": "BigCommerce",
+        "field": "auth_primary",
+        "expected": "pat",
+        "actual": "oauth2",
+        "bucket": "wrong"
+      },
+      {
+        "app": "Squarespace",
+        "field": "access_tier",
+        "expected": "plan_gated",
+        "actual": "approval_gated",
+        "bucket": "wrong"
+      },
+      {
+        "app": "Squarespace",
+        "field": "auth_primary",
+        "expected": "api_key",
+        "actual": "oauth2",
+        "bucket": "wrong"
+      },
+      {
+        "app": "Squarespace",
+        "field": "mcp_exists",
+        "expected": "unknown",
+        "actual": "none",
+        "bucket": "wrong"
+      },
+      {
+        "app": "Bright Data",
+        "field": "access_tier",
+        "expected": "card_required",
+        "actual": "self_serve_free",
+        "bucket": "wrong"
+      },
+      {
+        "app": "Neo4j",
+        "field": "access_tier",
+        "expected": "card_required",
+        "actual": "self_serve_free",
+        "bucket": "wrong"
+      },
+      {
+        "app": "Neo4j",
+        "field": "auth_primary",
+        "expected": "oauth2",
+        "actual": "basic",
+        "bucket": "wrong"
+      },
+      {
+        "app": "Coda",
+        "field": "auth_primary",
+        "expected": "api_key",
+        "actual": "oauth2",
+        "bucket": "wrong"
+      },
+      {
+        "app": "Coda",
+        "field": "mcp_exists",
+        "expected": "unknown",
+        "actual": "none",
+        "bucket": "wrong"
+      },
+      {
+        "app": "Otter AI",
+        "field": "access_tier",
+        "expected": "partner_gated",
+        "actual": "unknown",
+        "bucket": "honestly_unknown"
+      },
+      {
+        "app": "Otter AI",
+        "field": "auth_primary",
+        "expected": "oauth2",
+        "actual": "unknown",
+        "bucket": "honestly_unknown"
+      },
+      {
+        "app": "Otter AI",
+        "field": "mcp_exists",
+        "expected": "official_gated",
+        "actual": "unknown",
+        "bucket": "honestly_unknown"
+      }
+    ]
+  },
+  "J_shallow_composio": {
+    "yes": 37,
+    "disagrees": 10,
+    "n_a": 53,
+    "note": "Independent auth_primary check vs Composio catalog — never averaged with deep verification."
+  },
+  "K_version_history": [
+    {
+      "version": "v1",
+      "overall": "26/40 (65.0%) on original 10-app key",
+      "note": "Call1 search agent + Call2 extract; direct access_tier emit; live guards on."
+    },
+    {
+      "version": "v2",
+      "overall": "27/40 (67.5%) on original 10-app key",
+      "note": "Best single-key score; Call2 emits access_tier; optional second round."
+    },
+    {
+      "version": "v2b unguarded",
+      "overall": "avg 58.3% across 3×10-app trials (26+23+21)/120",
+      "note": "Path fields + derive access_tier; live guards off; 100-app run."
+    },
+    {
+      "version": "v2b postguard",
+      "overall": "avg 60.8% across 3×10-app trials (29+22+22)/120",
+      "note": "Post-loop: prefer second-round auth/path; wipe MCP presence without MCP URL."
+    }
+  ],
+  "full_table_sort": [
+    "easy_win",
+    "easy_but_paid",
+    "needs_review",
+    "needs_outreach",
+    "blocked",
+    "unknown"
+  ]
+}

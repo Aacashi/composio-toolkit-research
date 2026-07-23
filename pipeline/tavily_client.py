@@ -1,6 +1,6 @@
-"""Tavily search + crawl + batched extract via Composio SDK, with direct API fallback.
+"""Tavily search + batched extract via Composio SDK, with direct API fallback.
 
-Primary: composio.tools.execute(TAVILY_SEARCH / TAVILY_CRAWL / TAVILY_EXTRACT, version=...)
+Primary: composio.tools.execute(TAVILY_SEARCH / TAVILY_EXTRACT, version=...)
 Fallback: https://api.tavily.com  (same interface; documented in README)
 """
 
@@ -18,30 +18,13 @@ CACHE_DIR = Path(__file__).resolve().parent.parent / "cache"
 CACHE_DIR.mkdir(exist_ok=True)
 
 TAVILY_API = "https://api.tavily.com"
-WARN_CREDITS = 700
-ABORT_CREDITS = 850
+WARN_CREDITS = 1200
+ABORT_CREDITS = 2000
 EXTRACT_BATCH_SIZE = 5
-CRAWL_MAX_DEPTH = 1
-CRAWL_MAX_BREADTH = 10
-CRAWL_LIMIT_CAP = 6
-DEFAULT_CRAWL_EXCLUDE = [
-    "/blog/.*",
-    "/changelog/.*",
-    "/careers/.*",
-    "/legal/.*",
-    "/privacy.*",
-    "/terms.*",
-    "/about.*",
-]
-DEFAULT_CRAWL_SELECT = [
-    "/docs/.*",
-    "/api/.*",
-    "/developers/.*",
-    "/authentication.*",
-    "/oauth.*",
-    "/pricing.*",
-    "/plans.*",
-]
+
+
+class TavilyRateLimitExhausted(RuntimeError):
+    """Raised when Tavily/Composio returns persistent 429 / rate limit."""
 
 
 class CreditTracker:
@@ -194,6 +177,10 @@ class TavilyClient:
             except Exception as e:
                 last_err = e
                 msg = str(e).lower()
+                if "429" in msg or "rate limit" in msg or "too many requests" in msg:
+                    raise TavilyRateLimitExhausted(
+                        f"Tavily/Composio rate limit on {slug}: {e}"
+                    ) from e
                 # Retry alternate version form for version-shaped failures OR
                 # "tool not found" (Composio returns 404 Tool_ToolNotFound for bad version tags).
                 if ver is not None and (
@@ -213,52 +200,36 @@ class TavilyClient:
 
     # ---- cache helpers ----
 
-    def _search_cache_path(
-        self, query: str, limit: int, include_domains: Optional[list[str]] = None
-    ) -> Path:
-        dom = ",".join(include_domains or [])
-        digest = hashlib.sha256(
-            f"search:{query}:{limit}:basic:{dom}".encode()
-        ).hexdigest()
+    def _search_cache_path(self, query: str, limit: int) -> Path:
+        digest = hashlib.sha256(f"search:{query}:{limit}:basic".encode()).hexdigest()
         return CACHE_DIR / f"search_{digest}.json"
 
     def _extract_cache_path(self, url: str) -> Path:
         digest = hashlib.sha256(url.encode("utf-8")).hexdigest()
         return CACHE_DIR / f"{digest}.md"
 
-    def _crawl_cache_path(self, params: dict[str, Any]) -> Path:
-        blob = json.dumps(params, sort_keys=True)
-        digest = hashlib.sha256(f"crawl:{blob}".encode()).hexdigest()
-        return CACHE_DIR / f"crawl_{digest}.json"
-
     # ---- search ----
 
-    def search(
-        self,
-        query: str,
-        limit: int = 5,
-        include_domains: Optional[list[str]] = None,
-    ) -> list[dict[str, Any]]:
-        domains = [d for d in (include_domains or []) if d]
-        path = self._search_cache_path(query, limit, domains)
+    def search(self, query: str, limit: int = 5) -> list[dict[str, Any]]:
+        path = self._search_cache_path(query, limit)
         if path.exists():
             self._log(f"[tavily] search cache hit q={query!r}")
             return json.loads(path.read_text(encoding="utf-8"))
 
-        self._log(f"[tavily] search q={query!r} domains={domains or 'any'}")
+        self._log(f"[tavily] search q={query!r}")
         results: list[dict[str, Any]] = []
         charged = False
         if self._composio is not None and not self.fallback_used:
             try:
-                results = self._composio_search(query, limit, domains)
+                results = self._composio_search(query, limit)
                 charged = True
             except Exception as e:
                 self._mark_composio_fallback(e)
                 if self.tavily_api_key:
-                    results = self._direct_search(query, limit, domains)
+                    results = self._direct_search(query, limit)
                     charged = True
         elif self.tavily_api_key:
-            results = self._direct_search(query, limit, domains)
+            results = self._direct_search(query, limit)
             charged = True
         else:
             self._log("[tavily] search skipped — no credentials")
@@ -268,122 +239,41 @@ class TavilyClient:
             self.tracker.add(1, f"search {query!r}")
         return results
 
-    def _composio_search(
-        self, query: str, limit: int, include_domains: list[str]
-    ) -> list[dict[str, Any]]:
-        args: dict[str, Any] = {
-            "query": query,
-            "search_depth": "basic",
-            "max_results": limit,
-        }
-        if include_domains:
-            args["include_domains"] = include_domains
-        raw = self._composio_execute("TAVILY_SEARCH", args)
+    def _composio_search(self, query: str, limit: int) -> list[dict[str, Any]]:
+        raw = self._composio_execute(
+            "TAVILY_SEARCH",
+            {
+                "query": query,
+                "search_depth": "basic",
+                "max_results": limit,
+            },
+        )
         return _normalize_search_results(raw)
 
     def _composio_extract(self, urls: list[str]) -> list[dict[str, Any]]:
         raw = self._composio_execute("TAVILY_EXTRACT", {"urls": urls})
         return _normalize_extract_results(raw, urls)
 
-    def _direct_search(
-        self, query: str, limit: int, include_domains: list[str]
-    ) -> list[dict[str, Any]]:
+    def _direct_search(self, query: str, limit: int) -> list[dict[str, Any]]:
         if not self.tavily_api_key:
             return []
-        body: dict[str, Any] = {
-            "api_key": self.tavily_api_key,
-            "query": query,
-            "search_depth": "basic",
-            "max_results": limit,
-        }
-        if include_domains:
-            body["include_domains"] = include_domains
-        resp = self._http.post(f"{TAVILY_API}/search", json=body)
+        resp = self._http.post(
+            f"{TAVILY_API}/search",
+            json={
+                "api_key": self.tavily_api_key,
+                "query": query,
+                "search_depth": "basic",
+                "max_results": limit,
+            },
+        )
+        if resp.status_code == 429:
+            raise TavilyRateLimitExhausted(
+                f"Tavily direct search HTTP 429 for query={query!r}"
+            )
         if resp.status_code != 200:
             self._log(f"[tavily] direct search http {resp.status_code}")
             return []
         return _normalize_search_results(resp.json())
-
-    # ---- crawl ----
-
-    def crawl(
-        self,
-        url: str,
-        *,
-        select_paths: Optional[list[str]] = None,
-        exclude_paths: Optional[list[str]] = None,
-        limit: int = CRAWL_LIMIT_CAP,
-    ) -> list[dict[str, Any]]:
-        """
-        Clamped crawl. Returns list of {url, markdown, error}.
-        Hard caps: depth=1, breadth<=10, limit<=6, allow_external=false, basic extract.
-        """
-        if not url:
-            return []
-        lim = max(1, min(int(limit or CRAWL_LIMIT_CAP), CRAWL_LIMIT_CAP))
-        select = list(select_paths or DEFAULT_CRAWL_SELECT)
-        exclude = list(exclude_paths or DEFAULT_CRAWL_EXCLUDE)
-        params = {
-            "url": url,
-            "max_depth": CRAWL_MAX_DEPTH,
-            "max_breadth": CRAWL_MAX_BREADTH,
-            "limit": lim,
-            "allow_external": False,
-            "extract_depth": "basic",
-            "format": "markdown",
-            "select_paths": select,
-            "exclude_paths": exclude,
-        }
-        path = self._crawl_cache_path(params)
-        if path.exists():
-            self._log(f"[tavily] crawl cache hit {url}")
-            return json.loads(path.read_text(encoding="utf-8"))
-
-        self._log(f"[tavily] crawl {url} limit={lim}")
-        results: list[dict[str, Any]] = []
-        charged = False
-        if self._composio is not None and not self.fallback_used:
-            try:
-                results = self._composio_crawl(params)
-                charged = True
-            except Exception as e:
-                self._mark_composio_fallback(e)
-                if self.tavily_api_key:
-                    results = self._direct_crawl(params)
-                    charged = True
-        elif self.tavily_api_key:
-            results = self._direct_crawl(params)
-            charged = True
-        else:
-            self._log("[tavily] crawl skipped — no credentials")
-
-        path.write_text(json.dumps(results, indent=2), encoding="utf-8")
-        # Cache successful page bodies as extract cache too
-        for item in results:
-            md = item.get("markdown") or ""
-            u = item.get("url") or ""
-            if u and md and not item.get("error"):
-                self._extract_cache_path(u).write_text(md, encoding="utf-8")
-        if charged:
-            n = max(1, len([r for r in results if r.get("markdown")]))
-            # map ~1/10 pages + extract ~1/5 pages (basic); rough floor
-            credits = max(1, (n + 9) // 10 + (n + 4) // 5)
-            self.tracker.add(credits, f"crawl {url} x{n}")
-        return results
-
-    def _composio_crawl(self, params: dict[str, Any]) -> list[dict[str, Any]]:
-        raw = self._composio_execute("TAVILY_CRAWL", dict(params))
-        return _normalize_crawl_results(raw)
-
-    def _direct_crawl(self, params: dict[str, Any]) -> list[dict[str, Any]]:
-        if not self.tavily_api_key:
-            return []
-        body = {"api_key": self.tavily_api_key, **params}
-        resp = self._http.post(f"{TAVILY_API}/crawl", json=body)
-        if resp.status_code != 200:
-            self._log(f"[tavily] direct crawl http {resp.status_code}")
-            return []
-        return _normalize_crawl_results(resp.json())
 
     # ---- extract (batched) ----
 
@@ -457,6 +347,10 @@ class TavilyClient:
             f"{TAVILY_API}/extract",
             json={"api_key": self.tavily_api_key, "urls": urls},
         )
+        if resp.status_code == 429:
+            raise TavilyRateLimitExhausted(
+                f"Tavily direct extract HTTP 429 for urls={urls}"
+            )
         if resp.status_code != 200:
             return [
                 {"url": u, "markdown": "", "error": f"http {resp.status_code}"}
@@ -548,45 +442,4 @@ def _normalize_extract_results(raw: Any, urls: list[str]) -> list[dict[str, Any]
             out.append(
                 {"url": u, "markdown": md, "error": None if str(md).strip() else "empty"}
             )
-    return out
-
-
-def _normalize_crawl_results(raw: Any) -> list[dict[str, Any]]:
-    """Map crawl payload to list of {url, markdown, error}."""
-    results_list: list = []
-    if isinstance(raw, dict):
-        if isinstance(raw.get("results"), list):
-            results_list = raw["results"]
-        elif isinstance(raw.get("data"), dict) and isinstance(raw["data"].get("results"), list):
-            results_list = raw["data"]["results"]
-        elif isinstance(raw.get("response_data"), dict) and isinstance(
-            raw["response_data"].get("results"), list
-        ):
-            results_list = raw["response_data"]["results"]
-        elif isinstance(raw.get("data"), list):
-            results_list = raw["data"]
-    elif isinstance(raw, list):
-        results_list = raw
-
-    out: list[dict[str, Any]] = []
-    for r in results_list or []:
-        if not isinstance(r, dict):
-            continue
-        url = r.get("url") or ""
-        md = (
-            r.get("raw_content")
-            or r.get("markdown")
-            or r.get("content")
-            or r.get("text")
-            or ""
-        )
-        if not url:
-            continue
-        out.append(
-            {
-                "url": url,
-                "markdown": md,
-                "error": None if str(md).strip() else "empty",
-            }
-        )
     return out

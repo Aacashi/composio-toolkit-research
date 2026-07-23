@@ -1,0 +1,92 @@
+[
+  {
+    "id": 15,
+    "app_name": "Pylon",
+    "category": "Support and Helpdesk",
+    "hint_raw": "usepylon.com",
+    "hint_url": "https://usepylon.com",
+    "hint_type": "domain",
+    "hint_note": null
+  },
+  {
+    "id": 30,
+    "app_name": "Vonage",
+    "category": "Communications and Messaging",
+    "hint_raw": "developer.vonage.com",
+    "hint_url": "https://developer.vonage.com",
+    "hint_type": "docs_url",
+    "hint_note": null
+  },
+  {
+    "id": 32,
+    "app_name": "Meta Ads",
+    "category": "Marketing, Ads, Email and Social",
+    "hint_raw": "developers.facebook.com/docs/marketing-apis",
+    "hint_url": "https://developers.facebook.com/docs/marketing-apis",
+    "hint_type": "docs_url",
+    "hint_note": null
+  },
+  {
+    "id": 48,
+    "app_name": "Gumroad",
+    "category": "Ecommerce",
+    "hint_raw": "gumroad.com/api",
+    "hint_url": "https://gumroad.com/api",
+    "hint_type": "docs_url",
+    "hint_note": null
+  },
+  {
+    "id": 51,
+    "app_name": "DataForSEO",
+    "category": "Data, SEO and Scraping",
+    "hint_raw": "docs.dataforseo.com",
+    "hint_url": "https://docs.dataforseo.com",
+    "hint_type": "docs_url",
+    "hint_note": null
+  },
+  {
+    "id": 60,
+    "app_name": "Clay",
+    "category": "Data, SEO and Scraping",
+    "hint_raw": "clay.com",
+    "hint_url": "https://clay.com",
+    "hint_type": "domain",
+    "hint_note": null
+  },
+  {
+    "id": 70,
+    "app_name": "Sentry",
+    "category": "Developer, Infra and Data platforms",
+    "hint_raw": "docs.sentry.io/api",
+    "hint_url": "https://docs.sentry.io/api",
+    "hint_type": "docs_url",
+    "hint_note": null
+  },
+  {
+    "id": 86,
+    "app_name": "QuickBooks",
+    "category": "Finance and Fintech",
+    "hint_raw": "developer.intuit.com",
+    "hint_url": "https://developer.intuit.com",
+    "hint_type": "docs_url",
+    "hint_note": null
+  },
+  {
+    "id": 97,
+    "app_name": "higgsfield",
+    "category": "AI, Research and Media-native",
+    "hint_raw": "higgsfield.ai/cli (content suite)",
+    "hint_url": "https://higgsfield.ai/cli",
+    "hint_type": "note",
+    "hint_note": "content suite"
+  },
+  {
+    "id": 98,
+    "app_name": "Mermaid CLI",
+    "category": "AI, Research and Media-native",
+    "hint_raw": "github.com/mermaid-js/mermaid-cli",
+    "hint_url": "https://github.com/mermaid-js/mermaid-cli",
+    "hint_type": "docs_url",
+    "hint_note": null
+  }
+]

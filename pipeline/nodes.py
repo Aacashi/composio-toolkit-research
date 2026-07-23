@@ -10,7 +10,7 @@ from pipeline.clean import assemble_extract_input, chunk_text, clean_page
 from pipeline.debug_log import DebugRecorder
 from pipeline.domains import merge_discovered_domains, seed_first_party_domains
 from pipeline.gemini_client import chunk_filter_call, discover_with_search_agent, generate_json
-from pipeline.guard import apply_guard
+from pipeline.guard import apply_guard, apply_post_loop_guards
 from pipeline.tavily_client import TavilyClient
 from pipeline.url_check import url_is_live
 from schema import (
@@ -28,9 +28,47 @@ MAX_PAGES = 6
 SECOND_ROUND_SEARCH_CAP = 2
 
 PRICING_URL_HINTS = ("pricing", "plans", "/price", "subscription", "billing")
+AUTH_URL_HINTS = (
+    "auth",
+    "oauth",
+    "api-key",
+    "apikey",
+    "api_key",
+    "token",
+    "authentication",
+    "login",
+    "security-and-auth",
+)
+MCP_URL_HINTS = ("mcp", "model-context", "modelcontextprotocol")
+JUNK_URL_MARKERS = (
+    "/_next/image",
+    "/static/",
+    "/assets/",
+    "/l/zh/",
+    "/l/ja/",
+    "/l/ko/",
+    "/l/es/",
+    "/l/fr/",
+    "/l/de/",
+)
+JUNK_URL_SUFFIXES = (
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".gif",
+    ".webp",
+    ".svg",
+    ".ico",
+    ".css",
+    ".js",
+    ".map",
+    ".woff",
+    ".woff2",
+)
 
 SECOND_ROUND_PRIORITY = (
     "pricing_coverage",
+    "auth_coverage",
     "integration_paths",
     "private_path_access",
     "public_path_access",
@@ -46,6 +84,21 @@ def sources_have_pricing(sources: list[str]) -> bool:
     return any(
         any(h in (u or "").lower() for h in PRICING_URL_HINTS) for u in (sources or [])
     )
+
+
+def sources_have_auth(sources: list[str]) -> bool:
+    return any(any(h in (u or "").lower() for h in AUTH_URL_HINTS) for u in (sources or []))
+
+
+def sources_have_mcp(sources: list[str]) -> bool:
+    return any(any(h in (u or "").lower() for h in MCP_URL_HINTS) for u in (sources or []))
+
+
+def is_junk_url(url: str) -> bool:
+    u = (url or "").lower().split("?", 1)[0]
+    if any(m in u for m in JUNK_URL_MARKERS):
+        return True
+    return any(u.endswith(sfx) for sfx in JUNK_URL_SUFFIXES)
 
 
 def provisional_access_tier(extract: dict[str, Any]) -> str:
@@ -229,6 +282,11 @@ def node_fetch(
     for role, url in url_plan:
         if not url or url in seen:
             continue
+        if is_junk_url(url):
+            print(f"[fetch] junk url={url} — skipping")
+            if "junk_url_skipped" not in flags:
+                flags.append("junk_url_skipped")
+            continue
         if not url_is_live(url):
             print(f"[fetch] dead url={url} — skipping extract")
             if "dead_url_skipped" not in flags:
@@ -272,7 +330,15 @@ def node_fetch(
         cleaned, thin = clean_page(text, max_chars=CLEAN_CAP)
         if thin and "thin_content" not in flags:
             flags.append("thin_content")
-        pages.append({"role": role, "url": url, "text": cleaned, "raw_len": raw_len})
+        pages.append(
+            {
+                "role": role,
+                "url": url,
+                "text": cleaned,
+                "raw_len": raw_len,
+                "thin": thin,
+            }
+        )
         sources.append(url)
 
     dbg.stage_end("fetch", pages=len(pages), sources=sources)
@@ -433,6 +499,21 @@ def merge_extract(first: dict[str, Any], second: dict[str, Any]) -> dict[str, An
         old_ev = ev1.get(field)
         sourced = old not in (None, "", [], "unknown", "n_a") and bool(old_ev)
         if sourced:
+            # Scored / path fields: prefer second round (more pages) over first.
+            if field in (
+                "auth_primary",
+                "integration_paths",
+                "private_path_access",
+                "public_path_access",
+            ):
+                out[field] = new
+                if field in ev2:
+                    ev1[field] = ev2[field]
+                if field in (second.get("confidence") or {}):
+                    conf[field] = second["confidence"][field]
+                if new != old:
+                    notes.append(f"second_round_override {field}: was {old!r}, now {new!r}")
+                continue
             if new != old:
                 notes.append(f"contradiction {field}: kept {old!r}, second said {new!r}")
             continue
@@ -464,18 +545,22 @@ def needs_second_round(
     src = list(sources or [])
     if not sources_have_pricing(src):
         missing.append("pricing_coverage")
+    if not sources_have_auth(src):
+        missing.append("auth_coverage")
 
     for f in SECOND_ROUND_PRIORITY:
-        if f == "pricing_coverage":
+        if f in ("pricing_coverage", "auth_coverage"):
             continue
         if row.get(f) in (None, "", "unknown"):
+            # MCP nudge: only chase when unknown AND no MCP-ish source yet
+            if f == "mcp_exists" and sources_have_mcp(src):
+                continue
             missing.append(f)
 
     # Provisional derived tier unknown → chase path + pricing evidence
     if provisional_access_tier(row) == "unknown":
         for f in ("integration_paths", "private_path_access", "public_path_access", "pricing_coverage"):
             if f not in missing:
-                # Only add pricing_coverage if still missing a pricing page
                 if f == "pricing_coverage" and sources_have_pricing(src):
                     continue
                 missing.append(f)
@@ -491,6 +576,10 @@ def second_round_targets(
             f"{name} pricing",
             f"{name} API pricing plans",
         ],
+        "auth_coverage": [
+            f"{name} API authentication documentation",
+            f"{name} OAuth API key auth",
+        ],
         "integration_paths": [f"{name} public integration app review vs private custom app"],
         "private_path_access": [f"{name} API pricing plans access"],
         "public_path_access": [f"{name} public app review marketplace pricing"],
@@ -502,6 +591,7 @@ def second_round_targets(
     }
     role_map = {
         "pricing_coverage": "pricing",
+        "auth_coverage": "auth",
         "integration_paths": "pricing",
         "private_path_access": "pricing",
         "public_path_access": "pricing",
@@ -547,6 +637,20 @@ def second_round_targets(
                         break
                     if picked is None:
                         picked = url  # fallback: first first-party hit
+                    continue
+                if field == "auth_coverage":
+                    if any(h in url.lower() for h in AUTH_URL_HINTS):
+                        picked = url
+                        break
+                    if picked is None:
+                        picked = url
+                    continue
+                if field == "mcp_exists":
+                    if any(h in url.lower() for h in MCP_URL_HINTS):
+                        picked = url
+                        break
+                    if picked is None:
+                        picked = url
                     continue
                 picked = url
                 break
@@ -603,11 +707,25 @@ def build_row(
 
     cli = row.get("api_type") == "cli_only"
     before = {f: row.get(f) for f in GEMINI_FACT_FIELDS}
-    # v10: guards commented out (keep apply_guard import + this block for re-enable).
+    # Full apply_guard stays offline; these two always run post-loop (no LLM).
+    row = apply_post_loop_guards(row, dbg=dbg)
+    # OFFLINE_GUARDS: skip full apply_guard during publish; store raw for later.
     # row = apply_guard(row, cli_shortcircuit=cli, dbg=dbg, pages=pages or [])
-    _ = (cli, pages, apply_guard)  # silence unused while guards are off
+    _ = (cli, apply_guard)  # keep import used for offline / re-enable
     row = derive_access_tier_from_paths(row)
+    row["guard_applied"] = False
+    row["post_loop_guards"] = True
+    row["pages_meta"] = [
+        {
+            "url": p.get("url"),
+            "role": p.get("role"),
+            "thin": bool(p.get("thin")),
+            "char_len": len(p.get("text") or ""),
+        }
+        for p in (pages or [])
+        if p.get("url")
+    ]
     for f in GEMINI_FACT_FIELDS:
         if before.get(f) != row.get(f):
-            dbg.add_guard_change(f, before.get(f), row.get(f), "derive")
+            dbg.add_guard_change(f, before.get(f), row.get(f), "post_loop_or_derive")
     return row
