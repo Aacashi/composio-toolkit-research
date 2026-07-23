@@ -28,6 +28,10 @@ BASE_COLS = [
     "has_webhooks",
     "mcp_exists",
     "is_open_source",
+    "integration_paths",
+    "private_path_access",
+    "public_path_access",
+    "path_evidence",
     "buildability",
     "blocker",
     "blocker_type",
@@ -55,6 +59,9 @@ EVIDENCE_FIELDS = [
     "has_webhooks",
     "mcp_exists",
     "is_open_source",
+    "integration_paths",
+    "private_path_access",
+    "public_path_access",
 ]
 
 

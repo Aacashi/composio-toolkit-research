@@ -53,6 +53,42 @@ DOCS_NONE_CAPABILITY_FIELDS = (
     "has_openapi_spec",
     "needs_instance_url",
     "is_open_source",
+    "integration_paths",
+    "private_path_access",
+    "public_path_access",
+)
+
+MCP_GATED_SIGNALS = (
+    "paywall",
+    "waitlist",
+    "preview",
+    "enterprise",
+    "paid plan",
+    "subscription",
+    "pricing tier",
+    "plan tier",
+    "upgrade",
+    "pro plan",
+    "business plan",
+    "license",
+    "celeste",
+)
+
+# Positive evidence that an official MCP is usable with ordinary credentials.
+MCP_OPEN_SIGNALS = (
+    "api key",
+    "api_key",
+    "access token",
+    "oauth",
+    "get started",
+    "quickstart",
+    "install",
+    "npx ",
+    "claude desktop",
+    "cursor",
+    "with your",
+    "available to all",
+    "free to use",
 )
 
 
@@ -222,11 +258,129 @@ def enforce_evidence_subset(
     return row
 
 
+def apply_mcp_gate_from_pages(
+    row: dict[str, Any],
+    pages: list[dict[str, Any]],
+    *,
+    dbg: Optional[DebugRecorder] = None,
+) -> dict[str, Any]:
+    """
+    If mcp_exists is official_open/official_gated, constrain using MCP page text.
+    Gated signals on the MCP page force official_gated; empty/unclear text -> unknown.
+    """
+    val = row.get("mcp_exists")
+    if val not in ("official_open", "official_gated"):
+        return row
+    hints = FIELD_URL_HINTS["mcp_exists"]
+    mcp_pages = [p for p in pages if url_matches_hints(p.get("url") or "", hints)]
+    if not mcp_pages:
+        # Presence guard should already have fired; if not, unknown.
+        before = val
+        row["mcp_exists"] = "unknown"
+        evidence = dict(row.get("evidence") or {})
+        evidence.pop("mcp_exists", None)
+        row["evidence"] = evidence
+        flags = list(row.get("flags") or [])
+        if "unsupported_presence" not in flags:
+            flags.append("unsupported_presence")
+        row["flags"] = flags
+        if dbg:
+            dbg.add_guard_change(
+                "mcp_exists", before, "unknown", "mcp gate: no mcp page text"
+            )
+        return row
+
+    text = " ".join((p.get("text") or "") for p in mcp_pages).lower()
+    if not text.strip():
+        before = val
+        row["mcp_exists"] = "unknown"
+        flags = list(row.get("flags") or [])
+        if "mcp_gate_unclear" not in flags:
+            flags.append("mcp_gate_unclear")
+        row["flags"] = flags
+        if dbg:
+            dbg.add_guard_change("mcp_exists", before, "unknown", "mcp gate: empty page text")
+        return row
+
+    has_gated = any(sig in text for sig in MCP_GATED_SIGNALS)
+    has_open = any(sig in text for sig in MCP_OPEN_SIGNALS)
+    if has_gated:
+        if val != "official_gated":
+            before = val
+            row["mcp_exists"] = "official_gated"
+            flags = list(row.get("flags") or [])
+            if "mcp_gate_forced" not in flags:
+                flags.append("mcp_gate_forced")
+            row["flags"] = flags
+            if dbg:
+                dbg.add_guard_change(
+                    "mcp_exists",
+                    before,
+                    "official_gated",
+                    "mcp gate: gated signals on page",
+                )
+        return row
+
+    # No gated signals. official_open only sticks with positive open evidence;
+    # otherwise we cannot tell open vs gated → unknown.
+    if val == "official_open" and not has_open:
+        before = val
+        row["mcp_exists"] = "unknown"
+        flags = list(row.get("flags") or [])
+        if "mcp_gate_unclear" not in flags:
+            flags.append("mcp_gate_unclear")
+        row["flags"] = flags
+        if dbg:
+            dbg.add_guard_change(
+                "mcp_exists",
+                before,
+                "unknown",
+                "mcp gate: no gated or open signals",
+            )
+    return row
+
+
+def apply_auth_detail_conflict(
+    row: dict[str, Any],
+    *,
+    dbg: Optional[DebugRecorder] = None,
+) -> dict[str, Any]:
+    """api_key + Basic-auth wording in auth_detail -> basic + auth_detail_conflict."""
+    if row.get("auth_primary") != "api_key":
+        return row
+    detail = (row.get("auth_detail") or "").lower()
+    basic_signals = (
+        "basic auth",
+        "http basic",
+        "basic authentication",
+        "base64",
+        "email/token",
+        "email:token",
+        "username:password",
+        "-u ",
+        "authorization: basic",
+    )
+    if not any(s in detail for s in basic_signals):
+        return row
+    before = row["auth_primary"]
+    row["auth_primary"] = "basic"
+    flags = list(row.get("flags") or [])
+    if "auth_detail_conflict" not in flags:
+        flags.append("auth_detail_conflict")
+    row["flags"] = flags
+    if dbg:
+        dbg.add_guard_change(
+            "auth_primary", before, "basic", "auth_detail describes Basic auth"
+        )
+    return row
+
+
 def apply_guard(
     row: dict[str, Any],
     *,
     cli_shortcircuit: bool = False,
     dbg: Optional[DebugRecorder] = None,
+    pages: Optional[list[dict[str, Any]]] = None,
 ) -> dict[str, Any]:
     flags: list[str] = list(row.get("flags") or [])
     evidence: dict[str, str] = dict(row.get("evidence") or {})
@@ -234,11 +388,15 @@ def apply_guard(
     first_party = list(row.get("first_party_domains") or [])
     skip_fields = CLI_SHORTCIRCUIT_FIELDS if cli_shortcircuit else frozenset()
 
-    for field in GEMINI_FACT_FIELDS:
+    # Path fields Gemini emits; access_tier is derived after guard and skipped here.
+    path_fields = ("integration_paths", "private_path_access", "public_path_access")
+    check_fields = [f for f in list(GEMINI_FACT_FIELDS) + list(path_fields) if f != "access_tier"]
+
+    for field in check_fields:
         if field in skip_fields:
             continue
         value = row.get(field)
-        if value in (None, "", "unknown"):
+        if value in (None, "", "unknown", "n_a"):
             continue
         ev = evidence.get(field)
         if not ev:
@@ -260,7 +418,7 @@ def apply_guard(
                     field, before, "unknown", "evidence not in sources_fetched"
                 )
             continue
-        if field in STRICT_FIRST_PARTY_FIELDS:
+        if field in STRICT_FIRST_PARTY_FIELDS or field in path_fields:
             if not domain_in_first_party(ev, first_party):
                 before = row[field]
                 row[field] = "unknown"
@@ -297,6 +455,8 @@ def apply_guard(
 
     row = apply_absence_guard(row, dbg=dbg)
     row = apply_presence_guard(row, dbg=dbg)
+    row = apply_mcp_gate_from_pages(row, pages or [], dbg=dbg)
+    row = apply_auth_detail_conflict(row, dbg=dbg)
     row = apply_docs_none_invariant(row, dbg=dbg)
     row = enforce_evidence_subset(row, dbg=dbg)
     return row

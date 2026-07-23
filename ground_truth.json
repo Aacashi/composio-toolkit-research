@@ -1,0 +1,251 @@
+{
+  "description": "Hand-labelled ground truth for the 10-app verification sample. First-party sources only. Public/distributed integration path assumed.",
+  "scored_fields": [
+    "access_tier",
+    "auth_primary",
+    "api_type",
+    "mcp_exists"
+  ],
+  "secondary_fields": [
+    "business_type",
+    "docs_access",
+    "needs_instance_url",
+    "has_openapi_spec",
+    "has_webhooks"
+  ],
+  "known_divergences": {
+    "Notion": "Docs support both readings: public connections need Marketplace security review, but an unlisted public connection can be used without one.",
+    "Ahrefs": "Ahrefs Connect is a partner programme; plain API access is only plan-gated. Both readings defensible.",
+    "Twenty": "30-day trial vs free tier is a boundary call.",
+    "Zendesk": "Trial-required vs card-required is a boundary call."
+  },
+  "rows": [
+    {
+      "app_name": "Stripe",
+      "category": "Finance and Fintech",
+      "business_type": "infra_usage_based",
+      "docs_access": "public",
+      "access_tier": "self_serve_free",
+      "auth_primary": "api_key",
+      "api_type": "rest",
+      "mcp_exists": "official_open",
+      "needs_instance_url": "no",
+      "has_openapi_spec": "yes",
+      "has_webhooks": "yes",
+      "evidence": {
+        "access_tier": "https://docs.stripe.com/keys",
+        "auth_primary": "https://docs.stripe.com/api/authentication",
+        "api_type": "https://docs.stripe.com/api",
+        "mcp_exists": "https://docs.stripe.com/mcp",
+        "has_openapi_spec": "https://github.com/stripe/openapi",
+        "has_webhooks": "https://docs.stripe.com/webhooks"
+      },
+      "notes": "One API host for all users. Key sent as HTTP Basic username with no password; Bearer also accepted. Free signup, no card, test mode unlimited.",
+      "labelled_by": "human, first-party sources only",
+      "assumption": "public/distributed integration path"
+    },
+    {
+      "app_name": "Firecrawl",
+      "category": "Data, SEO and Scraping",
+      "business_type": "infra_usage_based",
+      "docs_access": "public",
+      "access_tier": "self_serve_free",
+      "auth_primary": "api_key",
+      "api_type": "rest",
+      "mcp_exists": "official_open",
+      "needs_instance_url": "no",
+      "has_openapi_spec": "yes",
+      "has_webhooks": "yes",
+      "evidence": {
+        "access_tier": "https://www.firecrawl.dev/pricing",
+        "auth_primary": "https://docs.firecrawl.dev/api-reference/v2-introduction",
+        "api_type": "https://docs.firecrawl.dev/api-reference/v2-introduction",
+        "mcp_exists": "https://docs.firecrawl.dev/use-cases/developers-mcp",
+        "has_webhooks": "https://www.firecrawl.dev/blog/launch-week-i-day-7-webhooks"
+      },
+      "notes": "1,000 free credits/month, no card. Bearer fc- key. Keyless tier also exists (effectively open). Open source.",
+      "labelled_by": "human, first-party sources only",
+      "assumption": "public/distributed integration path"
+    },
+    {
+      "app_name": "Twenty",
+      "category": "CRM and Sales",
+      "business_type": "saas_seat_based",
+      "docs_access": "public",
+      "access_tier": "self_serve_trial",
+      "auth_primary": "api_key",
+      "api_type": "both",
+      "mcp_exists": "official_open",
+      "needs_instance_url": "yes",
+      "has_openapi_spec": "yes",
+      "has_webhooks": "yes",
+      "evidence": {
+        "access_tier": "https://twenty.com/pricing",
+        "auth_primary": "https://docs.twenty.com/developers/extend/api",
+        "api_type": "https://docs.twenty.com/developers/extend/api",
+        "mcp_exists": "https://docs.twenty.com/developers/extend/mcp",
+        "has_webhooks": "https://docs.twenty.com/developers/extend/webhooks"
+      },
+      "notes": "Cloud path classified, not self-host. 30-day trial, no card. Native MCP per Cloud workspace via OAuth. REST and GraphQL. Open source.",
+      "labelled_by": "human, first-party sources only",
+      "assumption": "public/distributed integration path"
+    },
+    {
+      "app_name": "Zendesk",
+      "category": "Support and Helpdesk",
+      "business_type": "saas_seat_based",
+      "docs_access": "public",
+      "access_tier": "self_serve_trial",
+      "auth_primary": "basic",
+      "api_type": "rest",
+      "mcp_exists": "none",
+      "needs_instance_url": "yes",
+      "has_openapi_spec": "yes",
+      "has_webhooks": "yes",
+      "evidence": {
+        "access_tier": "https://www.zendesk.com/pricing",
+        "auth_primary": "https://developer.zendesk.com/api-reference/introduction/security-and-auth/",
+        "api_type": "https://developer.zendesk.com/api-reference",
+        "has_openapi_spec": "https://developer.zendesk.com/documentation/conversations/references/openapi-specification",
+        "has_webhooks": "https://developer.zendesk.com/documentation/webhooks"
+      },
+      "notes": "API token sent via HTTP Basic as email/token:the_token. OAuth is secondary. Every endpoint is {subdomain}.zendesk.com. Trial or paid plan required.",
+      "labelled_by": "human, first-party sources only",
+      "assumption": "public/distributed integration path"
+    },
+    {
+      "app_name": "Ahrefs",
+      "category": "Data, SEO and Scraping",
+      "business_type": "data_vendor",
+      "docs_access": "public",
+      "access_tier": "plan_gated",
+      "auth_primary": "api_key",
+      "api_type": "rest",
+      "mcp_exists": "official_gated",
+      "needs_instance_url": "no",
+      "has_openapi_spec": "unknown",
+      "has_webhooks": "yes",
+      "evidence": {
+        "access_tier": "https://docs.ahrefs.com/en/api/docs/introduction",
+        "auth_primary": "https://docs.ahrefs.com/en/api/docs/introduction",
+        "api_type": "https://docs.ahrefs.com/en/api/docs/introduction",
+        "mcp_exists": "https://docs.ahrefs.com/en/mcp/docs/introduction"
+      },
+      "notes": "API on Lite plan and above; free test queries on lower plans; Enterprise for unlimited. MCP shares the same paid unit budget. Ahrefs Connect (OAuth partner programme) is a separate path requiring application and review.",
+      "labelled_by": "human, first-party sources only",
+      "assumption": "public/distributed integration path"
+    },
+    {
+      "app_name": "Notion",
+      "category": "Productivity and Project Management",
+      "business_type": "saas_seat_based",
+      "docs_access": "public",
+      "access_tier": "approval_gated",
+      "auth_primary": "oauth2",
+      "api_type": "rest",
+      "mcp_exists": "official_open",
+      "needs_instance_url": "no",
+      "has_openapi_spec": "no",
+      "has_webhooks": "yes",
+      "evidence": {
+        "access_tier": "https://developers.notion.com/docs/authorization",
+        "auth_primary": "https://developers.notion.com/reference/authentication",
+        "api_type": "https://developers.notion.com/reference/intro",
+        "mcp_exists": "https://developers.notion.com/guides/mcp/overview",
+        "has_webhooks": "https://developers.notion.com/reference/webhooks"
+      },
+      "notes": "DIVERGENCE: internal integrations are instant; public integrations require a Notion security review to be listed on the Marketplace, though an unlisted public connection can be used without review. Labelled approval_gated under the public/distributed assumption. Agent consistently reads the unlisted clause and returns self_serve_free.",
+      "labelled_by": "human, first-party sources only",
+      "assumption": "public/distributed integration path"
+    },
+    {
+      "app_name": "Meta Ads",
+      "category": "Marketing, Ads, Email and Social",
+      "business_type": "ad_platform",
+      "docs_access": "public",
+      "access_tier": "approval_gated",
+      "auth_primary": "oauth2",
+      "api_type": "rest",
+      "mcp_exists": "none",
+      "needs_instance_url": "no",
+      "has_openapi_spec": "no",
+      "has_webhooks": "yes",
+      "evidence": {
+        "access_tier": "https://developers.facebook.com/docs/marketing-apis/get-started",
+        "auth_primary": "https://developers.facebook.com/docs/marketing-apis/get-started",
+        "api_type": "https://developers.facebook.com/docs/marketing-apis",
+        "has_webhooks": "https://developers.facebook.com/docs/graph-api/webhooks"
+      },
+      "notes": "Token free and immediate, but Standard Access is dev-mode only. Advanced Access for ads_management requires App Review plus Business Verification. Days to weeks.",
+      "labelled_by": "human, first-party sources only",
+      "assumption": "public/distributed integration path"
+    },
+    {
+      "app_name": "Shopify",
+      "category": "Ecommerce",
+      "business_type": "commerce_platform",
+      "docs_access": "public",
+      "access_tier": "approval_gated",
+      "auth_primary": "oauth2",
+      "api_type": "both",
+      "mcp_exists": "official_open",
+      "needs_instance_url": "unknown",
+      "has_openapi_spec": "yes",
+      "has_webhooks": "yes",
+      "evidence": {
+        "access_tier": "https://help.shopify.com/en/partners/build-integrate/making-apps",
+        "auth_primary": "https://shopify.dev/docs/api/usage/authentication",
+        "api_type": "https://shopify.dev/docs/api",
+        "mcp_exists": "https://shopify.dev/docs/apps/build/storefront-mcp",
+        "has_webhooks": "https://shopify.dev/docs/api/webhooks/latest"
+      },
+      "notes": "Custom app for one store is self-serve; public app requires App Store review plus separate protected-customer-data approval. Public path classified. Token in X-Shopify-Access-Token. Needs {shop}.myshopify.com.",
+      "labelled_by": "human, first-party sources only",
+      "assumption": "public/distributed integration path"
+    },
+    {
+      "app_name": "fanbasis",
+      "category": "Ecommerce",
+      "business_type": "infra_usage_based",
+      "docs_access": "login_required",
+      "access_tier": "partner_gated",
+      "auth_primary": "api_key",
+      "api_type": "rest",
+      "mcp_exists": "unknown",
+      "needs_instance_url": "unknown",
+      "has_openapi_spec": "yes",
+      "has_webhooks": "no",
+      "evidence": {
+        "access_tier": "https://www.fanbasis.com/enterprises",
+        "docs_access": "https://dev-docs.fanbasis.com/",
+        "api_type": "https://www.fanbasis.com/enterprises",
+        "has_webhooks": "https://www.fanbasis.com/enterprises"
+      },
+      "notes": "Rebranded to Commas. Developer docs at dev-docs.fanbasis.com are password-walled. Enterprise page advertises REST API, Postman collection, webhooks, SDKs. Go-live involves a dedicated implementation engineer, averaging under five days. npm package uses FANBASIS_CHECKOUT_API_KEY.",
+      "labelled_by": "human, first-party sources only",
+      "assumption": "public/distributed integration path"
+    },
+    {
+      "app_name": "DealCloud",
+      "category": "CRM and Sales",
+      "business_type": "enterprise_sales",
+      "docs_access": "public",
+      "access_tier": "no_public_access",
+      "auth_primary": "oauth2",
+      "api_type": "rest",
+      "mcp_exists": "official_gated",
+      "needs_instance_url": "yes",
+      "has_openapi_spec": "yes",
+      "has_webhooks": "yes",
+      "evidence": {
+        "access_tier": "https://api.docs.dealcloud.com/docs/apikeys",
+        "auth_primary": "https://api.docs.dealcloud.com/docs/token",
+        "api_type": "https://api.docs.dealcloud.com/docs",
+        "mcp_exists": "https://api.docs.dealcloud.com/"
+      },
+      "notes": "Docs fully public on Stoplight (vendor-controlled, counts first-party). Credentials require an existing tenancy plus Platform Manager role; no signup path. OAuth2 client credentials, 900-second token. Site URL is client.dealcloud.com. MCP server client preview from July 2026.",
+      "labelled_by": "human, first-party sources only",
+      "assumption": "public/distributed integration path"
+    }
+  ]
+}

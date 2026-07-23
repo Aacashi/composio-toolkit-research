@@ -8,7 +8,7 @@ from typing import Any, Optional
 from pydantic import BaseModel, Field
 
 # Bump whenever prompts/ or this schema's Gemini surface changes.
-PROMPTS_VERSION = "v7"
+PROMPTS_VERSION = "v9"
 
 
 class BusinessType(str, Enum):
@@ -51,6 +51,12 @@ class AccessTier(str, Enum):
     approval_gated = "approval_gated"
     partner_gated = "partner_gated"
     no_public_access = "no_public_access"
+
+
+class IntegrationPaths(str, Enum):
+    one_path = "one_path"
+    two_paths = "two_paths"
+    unknown = "unknown"
 
 
 class AccessTierRollup(str, Enum):
@@ -125,8 +131,36 @@ class Flag(str, Enum):
     hint_unconfirmed = "hint_unconfirmed"
     second_round_used = "second_round_used"
     business_type_unconfirmed = "business_type_unconfirmed"
+    path_selection_applied = "path_selection_applied"
+    auth_detail_conflict = "auth_detail_conflict"
+    mcp_gate_forced = "mcp_gate_forced"
+    mcp_gate_unclear = "mcp_gate_unclear"
+    unsupported_absence = "unsupported_absence"
+    unsupported_presence = "unsupported_presence"
+    docs_none_capabilities = "docs_none_capabilities"
+    guard_invariant_fail = "guard_invariant_fail"
+    no_auth_page_fetched = "no_auth_page_fetched"
+    no_pricing_page_fetched = "no_pricing_page_fetched"
+    pricing_second_round = "pricing_second_round"
+    dead_url_skipped = "dead_url_skipped"
 
 
+# Fields Gemini emits (Call 2). access_tier is derived in code from path fields.
+GEMINI_EMIT_FIELDS = (
+    "docs_access",
+    "auth_primary",
+    "api_type",
+    "mcp_exists",
+    "has_openapi_spec",
+    "needs_instance_url",
+    "has_webhooks",
+    "is_open_source",
+    "integration_paths",
+    "private_path_access",
+    "public_path_access",
+)
+
+# Row-level atomic enums including derived access_tier (for guard / scoring).
 GEMINI_FACT_FIELDS = (
     "docs_access",
     "access_tier",
@@ -140,6 +174,8 @@ GEMINI_FACT_FIELDS = (
 )
 
 ATOMIC_ENUM_FIELDS = GEMINI_FACT_FIELDS
+
+PATH_ACCESS_VALUES = tuple(e.value for e in AccessTier) + ("n_a", "unknown")
 
 DERIVED_FIELDS = (
     "access_tier_rollup",
@@ -208,14 +244,15 @@ class DiscoverResult(BaseModel):
 
 
 class ExtractResult(BaseModel):
-    """Atomic facts only. No verdict fields. No business_type overwrite."""
+    """Atomic facts only. No verdict fields. No business_type overwrite.
+    access_tier is derived in code from integration path fields — not emitted here.
+    """
 
     one_liner: str = ""
     business_type_supported: str = "yes"  # transient; becomes flag if no
     docs_access: str = "unknown"
     auth_primary: str = "unknown"
     auth_detail: str = ""
-    access_tier: str = "unknown"
     access_cost_note: str = ""
     api_type: str = "unknown"
     has_openapi_spec: str = "unknown"
@@ -223,6 +260,10 @@ class ExtractResult(BaseModel):
     has_webhooks: str = "unknown"
     mcp_exists: str = "unknown"
     is_open_source: str = "unknown"
+    integration_paths: str = "unknown"
+    private_path_access: str = "unknown"
+    public_path_access: str = "n_a"
+    path_evidence: str = ""
     evidence: dict[str, str] = Field(default_factory=dict)
     confidence: dict[str, str] = Field(default_factory=dict)
     notes: str = ""
@@ -251,6 +292,10 @@ def empty_unknown_row(
         "has_webhooks": "unknown",
         "mcp_exists": "unknown",
         "is_open_source": "unknown",
+        "integration_paths": "unknown",
+        "private_path_access": "unknown",
+        "public_path_access": "n_a",
+        "path_evidence": "",
         "evidence": {},
         "confidence": confidence,
         "flags": list(flags or []),
@@ -274,6 +319,9 @@ ALLOWED_VALUES: dict[str, tuple[str, ...]] = {
     "has_webhooks": tuple(e.value for e in YesNoUnknown),
     "mcp_exists": tuple(e.value for e in McpExists),
     "is_open_source": tuple(e.value for e in YesNoUnknown),
+    "integration_paths": tuple(e.value for e in IntegrationPaths),
+    "private_path_access": PATH_ACCESS_VALUES,
+    "public_path_access": PATH_ACCESS_VALUES,
     "buildability": tuple(e.value for e in Buildability),
     "blocker_type": tuple(e.value for e in BlockerType),
     "unblocker": tuple(e.value for e in Unblocker),

@@ -120,6 +120,63 @@ def generate_json(
     return data
 
 
+def is_deep_site_query(query: str) -> bool:
+    """True for site:domain/path inventions — ban these."""
+    q = (query or "").strip()
+    # site:host/something  (path after domain)
+    return bool(re.search(r"(?i)\bsite:[^\s/]+/.+", q))
+
+
+def classify_search_target(query: str) -> Optional[str]:
+    """Rough target class for hard zero-result retries: auth | pricing | other."""
+    q = (query or "").lower()
+    if any(
+        k in q
+        for k in (
+            "pric",
+            "plan",
+            "billing",
+            "subscription",
+            "access tier",
+            "access_tier",
+        )
+    ):
+        return "pricing"
+    if any(
+        k in q
+        for k in (
+            "auth",
+            "oauth",
+            "api key",
+            "apikey",
+            "token",
+            "credential",
+            "login",
+            "permission",
+        )
+    ):
+        return "auth"
+    return None
+
+
+def urls_from_partial_json(text: str) -> dict[str, Optional[str]]:
+    """Best-effort extract auth_url / pricing_url from model text."""
+    out: dict[str, Optional[str]] = {"auth_url": None, "pricing_url": None}
+    try:
+        data = parse_json_loose(text)
+    except Exception:
+        return out
+    if not isinstance(data, dict):
+        return out
+    for k in ("auth_url", "pricing_url"):
+        v = data.get(k)
+        if isinstance(v, str) and v.strip().startswith("http"):
+            out[k] = v.strip()
+        elif v in (None, "", "null"):
+            out[k] = None
+    return out
+
+
 def discover_with_search_agent(
     *,
     app_name: str,
@@ -132,10 +189,7 @@ def discover_with_search_agent(
 ) -> tuple[dict[str, Any], int, list[dict[str, Any]]]:
     """
     Call 1 agent: Gemini with Tavily search bound. Max `max_tool_calls` searches.
-    Gemini decides every query. Returns (final_json, tool_call_count, tool_trace).
-
-    Caches only the final JSON (not mid-tool state), keyed by input hints —
-    not by search results (those are non-deterministic across days).
+    Fail-closed on auth+pricing before MCP; ban deep site: paths; hard zero-result retries.
     """
     from google.genai import types
 
@@ -151,10 +205,8 @@ def discover_with_search_agent(
         description=(
             "Search the live web via Tavily for vendor documentation, authentication, "
             "pricing/API access, app review, partner programmes, OpenAPI, webhooks, or MCP. "
-            "Choose queries using the business-type prior: e.g. enterprise_sales → contact sales / "
-            "partner docs; ad_platform → developer app review; data_vendor → API pricing tiers; "
-            "commerce_platform → merchant API / shop credentials. Prefer site: filters on known "
-            "vendor domains. Do not invent URLs — only return what search finds."
+            "Fill auth and pricing FIRST. Prefer site:{domain} + keywords only — never "
+            "site:{domain}/invented/path. Do not invent URLs — only return what search finds."
         ),
         parameters=types.Schema(
             type=types.Type.OBJECT,
@@ -183,11 +235,13 @@ def discover_with_search_agent(
     tool_calls = 0
     trace: list[dict[str, Any]] = []
     final_text = ""
+    scored_nudge_sent = False
     secondary_nudge_sent = False
+    forced_retries: set[str] = set()  # auth | pricing already hard-retried
+    known_urls: dict[str, Optional[str]] = {"auth_url": None, "pricing_url": None}
+    coverage_hits: dict[str, bool] = {"auth": False, "pricing": False}
 
-    # Iterative tool loop. Cap at max_tool_calls searches.
-    for _round in range(max_tool_calls + 4):
-        # After tool budget exhausted, force a plain JSON answer (no tools).
+    for _round in range(max_tool_calls + 6):
         use_tools = tool_calls < max_tool_calls
         config_kwargs: dict[str, Any] = {
             "system_instruction": system_prompt,
@@ -200,7 +254,6 @@ def discover_with_search_agent(
             )
         else:
             config_kwargs["response_mime_type"] = "application/json"
-            # Nudge finalization
             contents.append(
                 types.Content(
                     role="user",
@@ -223,7 +276,6 @@ def discover_with_search_agent(
             config=types.GenerateContentConfig(**config_kwargs),
         )
 
-        # Collect function calls from response
         fn_calls = []
         text_bits = []
         candidate = (resp.candidates or [None])[0]
@@ -235,100 +287,192 @@ def discover_with_search_agent(
                 elif getattr(part, "text", None):
                     text_bits.append(part.text)
 
+        if text_bits:
+            partial = urls_from_partial_json("\n".join(text_bits))
+            for k, v in partial.items():
+                if v:
+                    known_urls[k] = v
+
         if fn_calls and use_tools:
-            # Append model turn
             contents.append(candidate.content)
             response_parts = []
+            hard_retry_needed: Optional[str] = None
             for fc in fn_calls:
                 if tool_calls >= max_tool_calls:
                     break
-                name = fc.name or ""
                 args = dict(fc.args or {})
                 query = str(args.get("query") or "")
                 max_results = int(args.get("max_results") or 5)
                 max_results = max(1, min(8, max_results))
                 print(f"[agent] tavily_search #{tool_calls+1}: {query!r}")
-                results = search_fn(query, max_results)
                 tool_calls += 1
+
+                if is_deep_site_query(query):
+                    print(f"[agent] REJECT deep site: path query {query!r}")
+                    trace.append(
+                        {
+                            "query": query,
+                            "max_results": max_results,
+                            "results": [],
+                            "zero_results": True,
+                            "invalid_site_query": True,
+                        }
+                    )
+                    response_parts.append(
+                        types.Part.from_function_response(
+                            name=fc.name or "tavily_search",
+                            response={
+                                "results": [],
+                                "result_json": "[]",
+                                "zero_results": True,
+                                "invalid_site_query": True,
+                                "instruction": (
+                                    "INVALID QUERY. Do not invent site:domain/path URLs. "
+                                    "Retry as site:{domain} plus keywords only "
+                                    "(e.g. 'site:shopify.dev authentication' or "
+                                    "'site:shopify.dev pricing API')."
+                                ),
+                            },
+                        )
+                    )
+                    continue
+
+                results = search_fn(query, max_results)
                 if on_search:
                     on_search(query, results)
                 zero = not results
+                target = classify_search_target(query)
+                if not zero and target in ("auth", "pricing"):
+                    coverage_hits[target] = True
+                    # Seed known URL from first http result when still empty
+                    key = "auth_url" if target == "auth" else "pricing_url"
+                    if not known_urls.get(key):
+                        for r in results:
+                            u = (r.get("url") or "").strip()
+                            if u.startswith("http"):
+                                known_urls[key] = u
+                                break
                 if zero:
                     print(
-                        f"[agent] ZERO RESULTS for {query!r} — "
-                        "rephrase if scored target and budget remains"
+                        f"[agent] ZERO RESULTS for {query!r} "
+                        f"(target={target or 'other'})"
                     )
+                    if (
+                        target in ("auth", "pricing")
+                        and target not in forced_retries
+                        and tool_calls < max_tool_calls
+                    ):
+                        hard_retry_needed = target
                 trace.append(
                     {
                         "query": query,
                         "max_results": max_results,
                         "results": results,
                         "zero_results": zero,
+                        "target": target,
                     }
                 )
-                payload = json.dumps(results)[:5000]
                 fn_response: dict[str, Any] = {
                     "results": results,
-                    "result_json": payload,
+                    "result_json": json.dumps(results)[:5000],
                     "zero_results": zero,
                 }
-                if zero:
+                if zero and target in ("auth", "pricing"):
                     fn_response["instruction"] = (
-                        "ZERO RESULTS. If this was for a scored target (auth or "
-                        "pricing/access_tier), retry once with different wording before "
-                        "leaving that URL null. Secondary targets (MCP, OpenAPI, webhooks) "
-                        "retry only if budget remains after scored coverage. MCP is "
-                        "deprioritised under budget pressure only."
+                        f"ZERO RESULTS for {target}. Rephrase with different wording NOW "
+                        f"before leaving {target}_url null. Do not search MCP yet."
                     )
                 response_parts.append(
                     types.Part.from_function_response(
-                        name=name,
+                        name=fc.name or "tavily_search",
                         response=fn_response,
                     )
                 )
+
             contents.append(types.Content(role="user", parts=response_parts))
-            continue
-
-        # No tool call — if budget remains and we have not nudged for secondary
-        # coverage yet, push one more search round (MCP / OpenAPI / webhooks).
-        if (
-            use_tools
-            and tool_calls < max_tool_calls
-            and tool_calls > 0
-            and not secondary_nudge_sent
-        ):
-            secondary_nudge_sent = True
-            remaining = max_tool_calls - tool_calls
-            print(
-                f"[agent] early finalize with {remaining} calls left — "
-                "nudging MCP-first secondary search"
-            )
-            contents.append(
-                types.Content(
-                    role="user",
-                    parts=[
-                        types.Part.from_text(
-                            text=(
-                                f"You still have {remaining} search call(s). Do NOT finalize. "
-                                "First remaining call MUST search for the vendor MCP server "
-                                "(Model Context Protocol), e.g. "
-                                "'site:{vendor} MCP Model Context Protocol' or "
-                                "'{name} MCP server docs'. Then use any leftover calls for "
-                                "OpenAPI/Swagger or webhooks if those URLs are still null."
+            if hard_retry_needed and hard_retry_needed not in forced_retries:
+                forced_retries.add(hard_retry_needed)
+                print(f"[agent] HARD RETRY nudge for {hard_retry_needed}")
+                contents.append(
+                    types.Content(
+                        role="user",
+                        parts=[
+                            types.Part.from_text(
+                                text=(
+                                    f"HARD REQUIREMENT: your last {hard_retry_needed} search "
+                                    f"returned zero results. Immediately call tavily_search "
+                                    f"again with a REPHRASED {hard_retry_needed} query "
+                                    f"(site:domain + keywords only). Do NOT search MCP, "
+                                    f"OpenAPI, or webhooks until auth_url and pricing_url "
+                                    f"are both found."
+                                )
                             )
-                        )
-                    ],
+                        ],
+                    )
                 )
-            )
             continue
 
-        # No tool call — treat as final answer
+        # Early finalize without tools — gate on auth+pricing first
+        if use_tools and tool_calls < max_tool_calls and tool_calls > 0:
+            remaining = max_tool_calls - tool_calls
+            auth_ok = bool(known_urls.get("auth_url")) or coverage_hits["auth"]
+            price_ok = bool(known_urls.get("pricing_url")) or coverage_hits["pricing"]
+            if not auth_ok or not price_ok:
+                missing = []
+                if not auth_ok:
+                    missing.append("auth_url")
+                if not price_ok:
+                    missing.append("pricing_url")
+                print(
+                    f"[agent] early finalize blocked — need {missing} "
+                    f"({remaining} calls left)"
+                )
+                scored_nudge_sent = True
+                contents.append(
+                    types.Content(
+                        role="user",
+                        parts=[
+                            types.Part.from_text(
+                                text=(
+                                    f"You still have {remaining} search call(s). Do NOT finalize. "
+                                    f"Search ONLY for missing scored coverage: {', '.join(missing)}. "
+                                    "Use site:{domain} + keywords (no invented paths). "
+                                    "Do not search MCP/OpenAPI/webhooks until both auth_url "
+                                    "and pricing_url are non-null."
+                                )
+                            )
+                        ],
+                    )
+                )
+                continue
+            if not secondary_nudge_sent:
+                secondary_nudge_sent = True
+                print(
+                    f"[agent] scored coverage filled — nudging MCP/secondary "
+                    f"({remaining} calls left)"
+                )
+                contents.append(
+                    types.Content(
+                        role="user",
+                        parts=[
+                            types.Part.from_text(
+                                text=(
+                                    f"auth_url and pricing_url coverage looks filled. You still have "
+                                    f"{remaining} search call(s). Do NOT finalize yet if "
+                                    "mcp_url / openapi_url / webhooks_url are null — search "
+                                    "for MCP first, then OpenAPI or webhooks."
+                                )
+                            )
+                        ],
+                    )
+                )
+                continue
+
         final_text = "\n".join(text_bits) or (resp.text or "")
         break
     else:
         final_text = resp.text or "{}"
 
-    # If still not JSON, one formatting pass
     try:
         data = parse_json_loose(final_text)
     except Exception:

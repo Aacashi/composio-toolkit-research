@@ -94,9 +94,30 @@ def main(argv: list[str] | None = None) -> int:
                 )
 
     print(f"Deep verification apps compared: {labelled}")
+    filled = sum(
+        1
+        for gt in gt_idx.values()
+        for f in (*PRIMARY_SCORED, *SECONDARY_SCORED)
+        if gt.get(f) not in (None, "")
+    )
+    if filled == 0:
+        print(
+            "[score] WARNING: ground_truth atoms are empty — accuracy tables will be n/a. "
+            "Unknown-rate below still applies."
+        )
     print_table("PRIMARY (deep)", PRIMARY_SCORED, primary)
     print_table("DERIVED (inherited — report separately)", DERIVED_SCORED, derived)
     print_table("SECONDARY (deep)", SECONDARY_SCORED, secondary)
+
+    # Unknown-rate on Stage-1 scored atoms (independent of GT).
+    score_fields = (*PRIMARY_SCORED, "api_type", "mcp_exists")
+    print("\n=== UNKNOWN RATE (run atoms; not vs GT) ===")
+    print(f"{'field':<22} {'unknown':>10} {'rate':>10}")
+    for f in score_fields:
+        vals = [r.get(f) for r in run_rows]
+        n = len(vals)
+        unk = sum(1 for v in vals if v in (None, "", "unknown"))
+        print(f"{f:<22} {f'{unk}/{n}':>10} {100.0 * unk / max(n, 1):9.1f}%")
 
     unconfirmed = sum(
         1 for r in run_rows if "business_type_unconfirmed" in (r.get("flags") or [])
