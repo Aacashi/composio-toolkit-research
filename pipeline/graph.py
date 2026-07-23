@@ -1,12 +1,12 @@
-"""LangGraph (and plain sequential) orchestration for one app."""
+"""Stage 1 orchestration: discover → fetch → extract → guard → write facts."""
 
 from __future__ import annotations
 
-import time
 from datetime import datetime, timezone
 from typing import Any, Optional, TypedDict
 
-from pipeline.firecrawl_client import FirecrawlClient
+from crosscheck.composio_check import finalize_agreement
+from pipeline.debug_log import DebugRecorder
 from pipeline.nodes import (
     build_row,
     merge_extract,
@@ -17,106 +17,112 @@ from pipeline.nodes import (
     second_round_targets,
     validate_extract,
 )
-from crosscheck.composio_check import finalize_agreement
-from pipeline.verdict import derive_verdict
+from pipeline.tavily_client import TavilyClient
 from schema import empty_unknown_row
 
 
 class AppState(TypedDict, total=False):
     app: dict
-    discover: dict
-    pages: list
-    sources_fetched: list
-    flags: list
-    extract: dict
     row: dict
-    error: str
 
 
 def process_one_app(
     app: dict,
-    fc: FirecrawlClient,
+    tv: TavilyClient,
     *,
     run_id: Optional[str] = None,
     composio_fields: Optional[dict[str, Any]] = None,
+    verbose: bool = False,
 ) -> dict[str, Any]:
     """
-    Full pipeline for one app: discover → fetch → extract → optional second round
-    → guard → derive_verdict. Never raises out of this function.
+    Stage 1 only: facts + audit + composio cross-check.
+    Does NOT compute derived verdict fields.
     """
     run_id = run_id or datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     flags: list[str] = []
-    fc.tracker.set_app(app["app_name"])
+    tv.tracker.set_app(app["app_name"])
+    dbg = DebugRecorder(app["app_name"])
+    tv.verbose = verbose
 
     try:
-        discover = node_discover(app, fc)
-        fetch = node_fetch(discover, fc)
+        discover = node_discover(app, tv, dbg)
+        fetch = node_fetch(discover, tv, dbg)
 
         if len(fetch["pages"]) < 1:
-            # one retry of discover with failure reason
             flags.append("retry_used")
             discover = node_discover(
                 app,
-                fc,
+                tv,
+                dbg,
                 failure_reason="fewer than one page fetched on first attempt",
             )
-            fetch = node_fetch(discover, fc)
+            fetch = node_fetch(discover, tv, dbg)
 
         flags.extend(fetch.get("flags") or [])
         sources = list(fetch.get("sources_fetched") or [])
         pages = list(fetch.get("pages") or [])
 
         if not pages:
-            row = empty_unknown_row(app, flags=flags + ["no_docs_found"])
+            row = empty_unknown_row(app, flags=flags + ["no_docs_found"], docs_access="none_found")
             row["business_type"] = discover.get("business_type") or "ai_native"
             row["first_party_domains"] = discover.get("first_party_domains") or []
             row["backup_links"] = discover.get("backup_links") or []
-            row["docs_access"] = "none_found"
             row["run_id"] = run_id
-            row = derive_verdict(row)
+            dbg.set_credits(tv.tracker.per_app.get(app["app_name"], 0))
+            dbg.write()
             return _attach_composio(row, composio_fields)
 
-        extract = node_extract(app, discover, pages)
+        extract = node_extract(app, discover, pages, dbg)
         err = validate_extract(extract)
         if err:
-            extract = node_extract(app, discover, pages, repair_error=err)
+            extract = node_extract(app, discover, pages, dbg, repair_error=err)
             err2 = validate_extract(extract)
             if err2:
-                row = empty_unknown_row(app, flags=flags + ["schema_fail"])
+                row = empty_unknown_row(app, flags=flags + ["schema_fail"], docs_access="unknown")
                 row["business_type"] = discover.get("business_type") or "ai_native"
                 row["first_party_domains"] = discover.get("first_party_domains") or []
                 row["backup_links"] = discover.get("backup_links") or []
                 row["sources_fetched"] = sources
                 row["run_id"] = run_id
                 row["notes"] = f"schema_fail: {err2}"
-                row = derive_verdict(row)
+                dbg.set_credits(tv.tracker.per_app.get(app["app_name"], 0))
+                dbg.write()
                 return _attach_composio(row, composio_fields)
 
-        # provisional row for second-round decision (atoms only)
         provisional = {
-            **{k: extract.get(k) for k in (
-                "access_tier", "auth_primary", "api_type",
-                "has_openapi_spec", "has_webhooks", "mcp_exists",
-            )},
+            k: extract.get(k)
+            for k in (
+                "access_tier",
+                "auth_primary",
+                "api_type",
+                "has_openapi_spec",
+                "has_webhooks",
+                "mcp_exists",
+            )
         }
         missing = needs_second_round(provisional)
         if missing:
-            extras = second_round_targets(missing, app, discover, fc)
+            extras = second_round_targets(missing, app, discover, tv, dbg)
             if extras:
                 flags.append("second_round_used")
-                fetch2 = node_fetch(discover, fc, extra_urls=extras)
-                # only keep newly fetched pages not already in sources
+                fetch2 = node_fetch(
+                    discover,
+                    tv,
+                    dbg,
+                    extra_urls=extras,
+                    extras_only=True,
+                    already_fetched=set(sources),
+                    page_budget=min(3, len(extras)),
+                )
                 new_pages = [p for p in fetch2["pages"] if p["url"] not in sources]
                 pages = pages + new_pages
                 sources = sources + [p["url"] for p in new_pages]
                 flags.extend(f for f in (fetch2.get("flags") or []) if f not in flags)
-                extract2 = node_extract(
-                    app, discover, pages, field_subset=missing
-                )
+                extract2 = node_extract(app, discover, pages, dbg, field_subset=missing)
                 err3 = validate_extract(extract2)
                 if err3:
                     extract2 = node_extract(
-                        app, discover, pages, field_subset=missing, repair_error=err3
+                        app, discover, pages, dbg, field_subset=missing, repair_error=err3
                     )
                 extract = merge_extract(extract, extract2)
 
@@ -127,15 +133,19 @@ def process_one_app(
             sources_fetched=sources,
             flags=flags,
             run_id=run_id,
+            dbg=dbg,
         )
+        dbg.set_credits(tv.tracker.per_app.get(app["app_name"], 0))
+        dbg.write()
         return _attach_composio(row, composio_fields)
 
     except Exception as e:
         print(f"[graph] FAIL {app.get('app_name')}: {e}")
-        row = empty_unknown_row(app, flags=["schema_fail"])
+        dbg.add_error(str(e))
+        dbg.write()
+        row = empty_unknown_row(app, flags=["schema_fail"], docs_access="unknown")
         row["notes"] = f"pipeline exception: {e}"
         row["run_id"] = run_id
-        row = derive_verdict(row)
         return _attach_composio(row, composio_fields)
 
 
@@ -152,21 +162,13 @@ def _attach_composio(row: dict[str, Any], fields: Optional[dict[str, Any]]) -> d
 
 
 def build_graph():
-    """
-    Optional LangGraph wrapper. Prefer process_one_app for the CLI.
-    Returns a compiled graph if langgraph is available.
-    """
-    try:
-        from langgraph.graph import END, StateGraph
-    except ImportError:
-        return None
+    from langgraph.graph import END, StateGraph
 
-    def discover_node(state: AppState) -> AppState:
-        # placeholder — CLI uses process_one_app
+    def run_node(state: AppState) -> AppState:
         return state
 
     g = StateGraph(AppState)
-    g.add_node("discover", discover_node)
-    g.set_entry_point("discover")
-    g.add_edge("discover", END)
+    g.add_node("run", run_node)
+    g.set_entry_point("run")
+    g.add_edge("run", END)
     return g.compile()

@@ -1,32 +1,34 @@
-SECTION A — eight business types (classify into exactly one; this is a PRIOR for where to search, not a source of answers)
+SECTION A — seven business types (classify into exactly one; PRIOR for where to search, not a source of answers)
 
-- infra_usage_based: revenue scales with API calls, compute, or volume consumed. Expected posture: wide open, key-based, well documented.
-- saas_seat_based: revenue is per-user subscription. Expected posture: open API as retention/stickiness; little reason to gate.
-- ad_platform: revenue from advertising or attention on their own surface. Expected posture: docs public, but production access often requires app review.
-- data_vendor: the proprietary dataset is the product. Expected posture: API gated or expensive.
-- commerce_platform: merchants pay to sell through them. Expected posture: open per-merchant API; often needs shop/instance URL.
-- enterprise_sales: sold via contracts, no self-serve signup. Expected posture: docs on request; partnership required.
-- open_source: source is public and self-hostable. If a cloud/hosted product also exists, search the CLOUD path (connectors need the cloud product). Mention self-host only as a note later, not as the answer.
-- ai_native: recently launched AI product. Expected posture: inconsistent.
+- infra_usage_based: revenue scales with API calls / volume consumed. Wide open, key-based docs expected.
+- saas_seat_based: per-user subscription. Open API as retention.
+- ad_platform: revenue from ads / attention on their surface. Docs public; production often needs app review.
+- data_vendor: proprietary dataset is the product. API often gated/expensive.
+- commerce_platform: merchants pay to sell through them. Per-merchant API; often needs shop URL.
+- enterprise_sales: contract sales only, no self-serve. Docs on request; partnership.
+- ai_native: recently launched AI product. Inconsistent posture.
 
-State business_type and a one-sentence business_type_reason. Also state whether first-party pages you found support that classification (for your own reasoning); Call 2 will set business_type_confirmed separately.
+Do NOT use open_source as a business_type. Open-source status is a separate fact (is_open_source) filled in Call 2.
+If a product has cloud + self-host, search the CLOUD path.
+
+State business_type and a one-sentence business_type_reason.
 
 SECTION B — where to look, given the type
-Business type is a prior for WHERE to search, not a source of answers. Examples: infra_usage_based → public docs and quickstart; data_vendor → API access often behind a pricing tier; enterprise_sales → may have no public docs, "contact us"; ad_platform → public docs plus a separate app-review process.
+Business type is a prior for WHERE to search, not a source of answers.
 
 SECTION C — first-party rule
-Evidence must come from pages the vendor controls. This INCLUDES vendor-controlled pages on third-party documentation hosts: GitHub, Stoplight, Readme.io, Mintlify, GitBook, Postman, Apiary, Swagger Hub. It does NOT include blogs, comparison sites, aggregators, SEO content, group-buy sites, or AI-generated review pages. If no first-party page can be found for a given need, return null for that URL. Returning a third-party URL in its place is an error.
-
-You are given a SEEDED first_party_domains list from code. You may ONLY ADD clearly vendor-controlled hosts (vendor GitHub org, vendor Stoplight/Readme/Mintlify/GitBook/Postman page, learn.microsoft.com for LinkedIn). You must NEVER remove or replace seeded domains. Return the full first_party_domains list including seeds plus any allowed additions.
+Evidence must come from pages the vendor controls, including vendor pages on GitHub, Stoplight, Readme.io, Mintlify, GitBook, Postman, Apiary, Swagger Hub. NOT blogs, aggregators, SEO content.
+You are given SEEDED first_party_domains. You may ONLY ADD clearly vendor-controlled hosts. NEVER remove or replace seeds. Return the full list (seeds + allowed additions).
+If no first-party page for a need, return null for that URL.
 
 SECTION D — backup links
-Any useful non-first-party links go in backup_links with a one-line reason. Stored for human review; never used as evidence.
+Non-first-party useful links go in backup_links with a one-line reason. Never used as evidence.
 
-SECTION E — payment gate handling
-If the pricing page indicates API access requires a paid plan, that is the correct finding. Do not work around a paywall. Do not infer tier inclusion from third-party sources.
+SECTION E — payment gates
+If pricing says API needs a paid plan, record that. Do not work around paywalls. Do not infer tiers from third parties.
 
 SECTION F — output format
-Return ONLY a JSON object:
+Return ONLY JSON:
 {
   "one_liner": "...",
   "business_type": "...",
@@ -41,4 +43,4 @@ Return ONLY a JSON object:
   "backup_links": [{"url": "...", "why": "..."}]
 }
 
-Hard cap: at most 4 search tool calls. Prefer the seeded docs_url hint when provided.
+Prefer the seeded docs_url hint when provided. At most 4 searches were already run for you; use the OBSERVATIONS.

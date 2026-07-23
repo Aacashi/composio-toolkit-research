@@ -1,95 +1,70 @@
-"""Deterministic post-checks. No LLM. Cannot fail the run."""
+"""Deterministic post-checks. No LLM. Stage 1."""
 
 from __future__ import annotations
 
-from typing import Any
-from urllib.parse import urlparse
+from typing import Any, Optional
 
+from pipeline.debug_log import DebugRecorder
 from pipeline.domains import domain_in_first_party
 from pipeline.verdict import CLI_SHORTCIRCUIT_FIELDS
-from schema import HINT_FIELD_MAP
+from schema import GEMINI_FACT_FIELDS, HINT_FIELD_MAP
 
-
-# Fields that require first-party evidence domain check
 STRICT_FIRST_PARTY_FIELDS = (
     "auth_primary",
-    "auth_secondary",
     "access_tier",
     "mcp_exists",
-    "mcp_access",
     "has_openapi_spec",
+    "is_open_source",
 )
 
 
-def apply_guard(row: dict[str, Any], *, cli_shortcircuit: bool = False) -> dict[str, Any]:
+def apply_guard(
+    row: dict[str, Any],
+    *,
+    cli_shortcircuit: bool = False,
+    dbg: Optional[DebugRecorder] = None,
+) -> dict[str, Any]:
     flags: list[str] = list(row.get("flags") or [])
     evidence: dict[str, str] = dict(row.get("evidence") or {})
     sources = set(row.get("sources_fetched") or [])
     first_party = list(row.get("first_party_domains") or [])
-
     skip_fields = CLI_SHORTCIRCUIT_FIELDS if cli_shortcircuit else frozenset()
 
-    check_fields = [
-        "docs_access",
-        "docs_location",
-        "auth_primary",
-        "access_tier",
-        "api_type",
-        "api_breadth",
-        "has_openapi_spec",
-        "needs_instance_url",
-        "has_webhooks",
-        "mcp_exists",
-        "mcp_access",
-    ]
-
-    for field in check_fields:
+    for field in GEMINI_FACT_FIELDS:
         if field in skip_fields:
             continue
         value = row.get(field)
         if value in (None, "", "unknown"):
             continue
-        # auth_secondary is a list — handled below
         ev = evidence.get(field)
         if not ev:
+            before = row[field]
             row[field] = "unknown"
             if "unsourced" not in flags:
                 flags.append("unsourced")
+            if dbg:
+                dbg.add_guard_change(field, before, "unknown", "missing evidence")
             continue
-        if ev not in sources:
-            # allow if same URL ignoring trailing slash
-            normalized = {s.rstrip("/") for s in sources}
-            if ev.rstrip("/") not in normalized:
-                row[field] = "unknown"
-                evidence.pop(field, None)
-                if "unsourced" not in flags:
-                    flags.append("unsourced")
-                continue
+        normalized = {s.rstrip("/") for s in sources}
+        if ev not in sources and ev.rstrip("/") not in normalized:
+            before = row[field]
+            row[field] = "unknown"
+            evidence.pop(field, None)
+            if "unsourced" not in flags:
+                flags.append("unsourced")
+            if dbg:
+                dbg.add_guard_change(field, before, "unknown", "evidence not in sources_fetched")
+            continue
         if field in STRICT_FIRST_PARTY_FIELDS:
             if not domain_in_first_party(ev, first_party):
+                before = row[field]
                 row[field] = "unknown"
                 evidence.pop(field, None)
                 if "unsourced" not in flags:
                     flags.append("unsourced")
+                if dbg:
+                    dbg.add_guard_change(field, before, "unknown", "evidence not first-party")
 
-    # auth_secondary entries
-    if not cli_shortcircuit:
-        secondary = row.get("auth_secondary") or []
-        if secondary:
-            ev = evidence.get("auth_secondary") or evidence.get("auth_primary")
-            if not ev or (
-                ev not in sources
-                and ev.rstrip("/") not in {s.rstrip("/") for s in sources}
-            ):
-                row["auth_secondary"] = []
-                if "unsourced" not in flags:
-                    flags.append("unsourced")
-            elif not domain_in_first_party(ev, first_party):
-                row["auth_secondary"] = []
-                if "unsourced" not in flags:
-                    flags.append("unsourced")
-
-    # Hint contamination (LOGIC_FREEZE §10)
     app_name = row.get("app_name", "")
     for field in HINT_FIELD_MAP.get(app_name, ()):
         ev = evidence.get(field)

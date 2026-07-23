@@ -71,14 +71,16 @@ def assemble_extract_input(
     """
     pages: list of {role, url, text} in any order.
     Fill in priority order up to total_cap.
+    Multiple pages with the same role are kept (second-round extras).
     """
-    by_role = {p["role"]: p for p in pages}
+    role_rank = {role: i for i, role in enumerate(PAGE_PRIORITY)}
+    ordered = sorted(
+        [p for p in pages if p.get("text")],
+        key=lambda p: (role_rank.get(p.get("role", ""), 99), pages.index(p)),
+    )
     parts: list[str] = []
     used = 0
-    for role in PAGE_PRIORITY:
-        p = by_role.get(role)
-        if not p or not p.get("text"):
-            continue
+    for p in ordered:
         header = f"=== SOURCE: {p['url']} ===\n"
         body = p["text"]
         remaining = total_cap - used - len(header)

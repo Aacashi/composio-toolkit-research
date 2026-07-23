@@ -41,16 +41,16 @@ export default function Page() {
         </div>
       </aside>
 
-      {/* RESERVED: cli_tool category finding */}
+      {/* RESERVED: cli_only category finding */}
       <aside
         id="finding-cli-tools"
         className="mx-auto max-w-6xl px-5 pb-4"
-        data-slot="cli-tool-finding"
+        data-slot="cli-only-finding"
       >
         <div className="border-l-4 border-ink/40 pl-4 py-2 bg-white/40">
-          <h2 className="font-display text-xl mb-1">Category note: CLI tools</h2>
+          <h2 className="font-display text-xl mb-1">Category note: CLI-only tools</h2>
           <p className="text-mute text-sm max-w-3xl">
-            Entries with <code>api_type=cli_tool</code> (e.g. Mermaid CLI, Sherlock) are local
+            Entries with <code>api_type=cli_only</code> (e.g. Mermaid CLI, Sherlock) are local
             commands with no vendor-authenticated API. They are{" "}
             <strong className="text-ink">not Composio connector candidates</strong>.
           </p>
@@ -60,12 +60,11 @@ export default function Page() {
         </div>
       </aside>
 
-      {/* wait_class note */}
+      {/* access_tier_rollup note */}
       <aside className="mx-auto max-w-6xl px-5 pb-8">
         <p className="text-xs text-mute max-w-3xl">
-          <code>wait_class</code> is a coarse fixed map from <code>buildability</code>, not a calendar
-          estimate (easy_win/easy_but_paid→none, needs_review→weeks, needs_outreach→months,
-          blocked→n_a).
+          Headline charts use <code>access_tier_rollup</code> (open | paid | gated), derived in
+          Stage 2 from the nine-value <code>access_tier</code>. Detail tables keep the full enum.
         </p>
       </aside>
 
@@ -89,11 +88,12 @@ export default function Page() {
       <section className="section" aria-labelledby="patterns">
         <h2 id="patterns">Patterns</h2>
         <p className="text-mute mb-6">Cross-tabs after clustering (not implemented in this scaffold).</p>
-        <div className="grid md:grid-cols-3 gap-4">
+        <div className="grid md:grid-cols-2 gap-4">
           {[
-            "business_type × access_tier",
+            "business_type × access_tier_rollup",
             "auth_primary × buildability",
-            "unblocker × wait_class",
+            "unblocker × buildability",
+            "category × buildability",
           ].map((t) => (
             <div key={t} className="placeholder">
               <p className="font-semibold text-ink mb-2">Takeaway: [placeholder]</p>

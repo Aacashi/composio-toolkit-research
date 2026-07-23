@@ -1,4 +1,4 @@
-"""CLI entrypoint: versioned run files, resume, credit budget, optional sheets export."""
+"""CLI — Stage 1 pipeline (facts only). AMENDMENT_3."""
 
 from __future__ import annotations
 
@@ -19,13 +19,12 @@ from crosscheck.composio_check import (  # noqa: E402
     load_catalog,
     maybe_export_sheets,
 )
-from pipeline.firecrawl_client import CreditTracker, FirecrawlClient  # noqa: E402
 from pipeline.graph import process_one_app  # noqa: E402
+from pipeline.tavily_client import CreditTracker, TavilyClient  # noqa: E402
 
 DATA = ROOT / "data"
 SLEEP_BETWEEN_APPS = 2.0
 BATCH_SIZE = 25
-CREDIT_LIMIT = 450
 
 
 def next_run_path(explicit: str | None = None) -> Path:
@@ -46,6 +45,15 @@ def load_apps(path: Path) -> list[dict]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def find_app(name: str) -> dict:
+    for fname in ("apps_100.json", "apps_10.json"):
+        apps = load_apps(DATA / fname)
+        for a in apps:
+            if a["app_name"].lower() == name.lower():
+                return a
+    raise SystemExit(f"app not found: {name}")
+
+
 def load_run(path: Path) -> list[dict]:
     if not path.exists():
         return []
@@ -59,46 +67,44 @@ def save_run(path: Path, rows: list[dict]) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     load_dotenv(ROOT / ".env")
-    parser = argparse.ArgumentParser(description="Composio toolkit research pipeline")
+    parser = argparse.ArgumentParser(description="Composio toolkit research — Stage 1")
+    parser.add_argument("--apps", default="apps_10.json")
+    parser.add_argument("--run", default=None)
+    parser.add_argument("--resume", action="store_true")
+    parser.add_argument("--limit", type=int, default=None)
+    parser.add_argument("--batch-size", type=int, default=BATCH_SIZE)
+    parser.add_argument("--export-sheets", action="store_true")
+    parser.add_argument("--sleep", type=float, default=SLEEP_BETWEEN_APPS)
     parser.add_argument(
-        "--apps",
-        default="apps_10.json",
-        help="Apps JSON under data/ (default: apps_10.json)",
-    )
-    parser.add_argument(
-        "--run",
+        "--app",
         default=None,
-        help="Run file path or name (default: next unused data/run_vN.json)",
+        help="Run a single app by name. Prints stages; writes NOTHING to run file.",
     )
     parser.add_argument(
-        "--resume",
+        "--verbose",
         action="store_true",
-        help="Skip apps already present in the run file",
-    )
-    parser.add_argument(
-        "--limit",
-        type=int,
-        default=None,
-        help="Process at most N apps from the input list",
-    )
-    parser.add_argument(
-        "--batch-size",
-        type=int,
-        default=BATCH_SIZE,
-        help="Abort projection checked every batch (default 25)",
-    )
-    parser.add_argument(
-        "--export-sheets",
-        action="store_true",
-        help="After run, optionally push rows to Sheets via Composio (never fails pipeline)",
-    )
-    parser.add_argument(
-        "--sleep",
-        type=float,
-        default=SLEEP_BETWEEN_APPS,
-        help="Seconds between apps",
+        help="Verbose console output (implied by --app).",
     )
     args = parser.parse_args(argv)
+    verbose = args.verbose or bool(args.app)
+
+    # Single-app dry mode
+    if args.app:
+        app = find_app(args.app)
+        print(f"[run] single-app mode: {app['app_name']} (no run file write)")
+        catalog = load_catalog()
+        tracker = CreditTracker()
+        tv = TavilyClient(tracker=tracker, verbose=verbose)
+        composio = attach_composio_to_row(app["app_name"], catalog)
+        run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        row = process_one_app(
+            app, tv, run_id=run_id, composio_fields=composio, verbose=verbose
+        )
+        print("[run] RESULT (not saved):")
+        print(json.dumps(row, indent=2, ensure_ascii=False)[:8000])
+        print(f"[run] credits app={tracker.per_app.get(app['app_name'], 0)} total={tracker.total}")
+        print(f"[run] tavily provider={tv.mode}")
+        return 0
 
     apps_path = DATA / args.apps if not Path(args.apps).is_absolute() else Path(args.apps)
     apps = load_apps(apps_path)
@@ -106,7 +112,6 @@ def main(argv: list[str] | None = None) -> int:
         apps = apps[: args.limit]
 
     run_path = next_run_path(args.run)
-    # If --run points at existing file, use it (resume-friendly)
     if args.run:
         run_path = Path(args.run)
         if not run_path.is_absolute():
@@ -114,46 +119,50 @@ def main(argv: list[str] | None = None) -> int:
 
     rows = load_run(run_path) if (args.resume or run_path.exists()) else []
     done_names = {r.get("app_name") for r in rows}
-    pending = [a for a in apps if a["app_name"] not in done_names] if args.resume or rows else list(apps)
+    pending = (
+        [a for a in apps if a["app_name"] not in done_names]
+        if args.resume or rows
+        else list(apps)
+    )
 
     print(f"[run] apps={len(apps)} pending={len(pending)} out={run_path}")
 
-    catalog = load_catalog()  # degrades to None on failure
-    tracker = CreditTracker(limit=CREDIT_LIMIT)
-    fc = FirecrawlClient(tracker=tracker)
+    catalog = load_catalog()
+    tracker = CreditTracker()
+    tv = TavilyClient(tracker=tracker, verbose=verbose)
     run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-
     apps_total = len(apps)
-    apps_done_before = len(done_names)
-    processed_this_session = 0
+    processed = 0
 
     for i, app in enumerate(pending):
-        # credit projection abort
-        remaining_in_batch = min(args.batch_size, len(pending) - i)
-        if not tracker.projected_ok(
-            apps_done_before + processed_this_session,
-            apps_total,
-            remaining_in_batch,
-        ):
-            print("[run] aborting for credit budget; partial run saved")
-            break
+        if processed > 0:
+            remaining = len(pending) - i
+            if not tracker.projected_ok(processed, apps_total, remaining):
+                print("[run] aborting for credit budget; partial run saved")
+                break
 
         print(f"[run] ({i+1}/{len(pending)}) {app['app_name']}")
         composio = attach_composio_to_row(app["app_name"], catalog)
-        row = process_one_app(app, fc, run_id=run_id, composio_fields=composio)
+        row = process_one_app(
+            app, tv, run_id=run_id, composio_fields=composio, verbose=verbose
+        )
         rows.append(row)
         save_run(run_path, rows)
-        processed_this_session += 1
+        processed += 1
+        print(
+            f"[run] wrote {app['app_name']} credits_app="
+            f"{tracker.per_app.get(app['app_name'], 0)} total={tracker.total}"
+        )
 
         if i < len(pending) - 1:
             time.sleep(args.sleep)
 
     print(f"[run] complete rows={len(rows)} credits={tracker.total} file={run_path}")
+    print(f"[run] tavily provider={tv.mode}")
     print("[run] per-app credits:", json.dumps(tracker.per_app, indent=2))
 
     if args.export_sheets:
         maybe_export_sheets(rows)
-
     return 0
 
 

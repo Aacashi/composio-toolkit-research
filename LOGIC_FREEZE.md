@@ -1,7 +1,4 @@
-# Logic Freeze
-
-Final decisions. Supersedes `SPEC.md` wherever they conflict.
-Implement these as written. See also `DEFINITIONS.md`.
+# AMENDMENT_3 supersedes this file. Keep for history only.
 
 ---
 
@@ -121,4 +118,6 @@ Run the 100 in batches of 25. Abort if projected total exceeds 450.
 (a) public/distributed app path assumption  
 (b) `cli_tool` entries are not connector candidates  
 
-Placeholders only for findings content. Clustering stays unimplemented.
+Placeholders only for findings content. Clustering stays unimplemented;
+when implemented, include **category × buildability** (FIX 6) alongside the
+other §9 cross-tabs.

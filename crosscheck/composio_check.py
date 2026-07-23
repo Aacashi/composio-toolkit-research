@@ -144,23 +144,29 @@ def attach_composio_to_row(
     match, ambiguous = match_toolkit(app_name, catalog)
     if ambiguous or match is None:
         return {
-            "composio_supports": False,
+            "composio_supports": "no",
             "composio_auth_scheme": None,
             "agrees_with_composio": "n_a",
         }
     scheme = _primary_auth_from_composio(match.get("auth"))
     return {
-        "composio_supports": True,
+        "composio_supports": "yes",
         "composio_auth_scheme": scheme,
-        "agrees_with_composio": "n_a",  # filled after extract knows auth_primary
+        "agrees_with_composio": "n_a",
     }
 
 
 def finalize_agreement(row: dict[str, Any]) -> dict[str, Any]:
     """Compute agrees_with_composio once auth_primary is known."""
-    if not row.get("composio_supports"):
+    supports = row.get("composio_supports")
+    if supports not in ("yes", True):
         row["agrees_with_composio"] = "n_a"
+        if supports is True:
+            row["composio_supports"] = "yes"
+        elif supports is False:
+            row["composio_supports"] = "no"
         return row
+    row["composio_supports"] = "yes"
     ours = row.get("auth_primary")
     theirs = row.get("composio_auth_scheme")
     if ours in (None, "", "unknown") or theirs in (None, ""):
@@ -168,7 +174,7 @@ def finalize_agreement(row: dict[str, Any]) -> dict[str, Any]:
     elif ours == theirs:
         row["agrees_with_composio"] = "yes"
     else:
-        row["agrees_with_composio"] = "disagrees"  # never "error"
+        row["agrees_with_composio"] = "disagrees"
     return row
 
 

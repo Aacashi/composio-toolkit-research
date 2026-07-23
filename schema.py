@@ -1,4 +1,4 @@
-"""Schema enums, models, and constants for the research pipeline."""
+"""Schema enums, models, and constants — AMENDMENT_3."""
 
 from __future__ import annotations
 
@@ -7,9 +7,8 @@ from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 
-
-# Bump whenever any prompt file under prompts/ changes.
-PROMPTS_VERSION = "v1"
+# Bump whenever prompts/ or this schema's Gemini surface changes.
+PROMPTS_VERSION = "v2"
 
 
 class BusinessType(str, Enum):
@@ -19,7 +18,6 @@ class BusinessType(str, Enum):
     data_vendor = "data_vendor"
     commerce_platform = "commerce_platform"
     enterprise_sales = "enterprise_sales"
-    open_source = "open_source"
     ai_native = "ai_native"
 
 
@@ -28,13 +26,6 @@ class DocsAccess(str, Enum):
     login_required = "login_required"
     on_request = "on_request"
     none_found = "none_found"
-
-
-class DocsLocation(str, Enum):
-    own_domain = "own_domain"
-    docs_subdomain = "docs_subdomain"
-    third_party_host = "third_party_host"
-    none = "none"
 
 
 class AuthScheme(str, Enum):
@@ -60,24 +51,20 @@ class AccessTier(str, Enum):
     approval_gated = "approval_gated"
     partner_gated = "partner_gated"
     no_public_access = "no_public_access"
-    # self_hosted retired (LOGIC_FREEZE §4)
+
+
+class AccessTierRollup(str, Enum):
+    open = "open"
+    paid = "paid"
+    gated = "gated"
 
 
 class ApiType(str, Enum):
     rest = "rest"
     graphql = "graphql"
     both = "both"
-    soap = "soap"
-    sdk_only = "sdk_only"
-    cli_tool = "cli_tool"
+    cli_only = "cli_only"
     none = "none"
-    unknown = "unknown"
-
-
-class ApiBreadth(str, Enum):
-    narrow = "narrow"
-    medium = "medium"
-    broad = "broad"
     unknown = "unknown"
 
 
@@ -88,17 +75,11 @@ class YesNoUnknown(str, Enum):
 
 
 class McpExists(str, Enum):
-    official = "official"
+    official_open = "official_open"
+    official_gated = "official_gated"
     community = "community"
     none = "none"
     unknown = "unknown"
-
-
-class McpAccess(str, Enum):
-    same_as_api = "same_as_api"
-    paid_only = "paid_only"
-    waitlist = "waitlist"
-    n_a = "n_a"
 
 
 class Buildability(str, Enum):
@@ -128,16 +109,6 @@ class Unblocker(str, Enum):
     n_a = "n_a"
 
 
-class WaitClass(str, Enum):
-    none = "none"
-    hours = "hours"
-    days = "days"
-    weeks = "weeks"
-    months = "months"
-    n_a = "n_a"
-    unknown = "unknown"
-
-
 class Confidence(str, Enum):
     high = "high"
     med = "med"
@@ -153,59 +124,53 @@ class Flag(str, Enum):
     retry_used = "retry_used"
     hint_unconfirmed = "hint_unconfirmed"
     second_round_used = "second_round_used"
+    business_type_unconfirmed = "business_type_unconfirmed"
 
 
-# Atomic fields Gemini may emit (extract). Verdict fields are code-derived.
-ATOMIC_ENUM_FIELDS = (
+GEMINI_FACT_FIELDS = (
     "docs_access",
-    "docs_location",
-    "auth_primary",
     "access_tier",
+    "auth_primary",
     "api_type",
-    "api_breadth",
+    "mcp_exists",
     "has_openapi_spec",
     "needs_instance_url",
     "has_webhooks",
-    "mcp_exists",
-    "mcp_access",
+    "is_open_source",
 )
 
+ATOMIC_ENUM_FIELDS = GEMINI_FACT_FIELDS
+
 DERIVED_FIELDS = (
+    "access_tier_rollup",
     "buildability",
     "unblocker",
-    "wait_class",
     "blocker_type",
     "blocker",
 )
 
-# Scored against ground truth (atoms). Derived reported separately.
 PRIMARY_SCORED = ("access_tier", "auth_primary")
 SECONDARY_SCORED = (
     "business_type",
     "docs_access",
-    "docs_location",
     "api_type",
-    "api_breadth",
     "has_openapi_spec",
     "needs_instance_url",
     "has_webhooks",
     "mcp_exists",
-    "mcp_access",
+    "is_open_source",
 )
-DERIVED_SCORED = ("buildability", "blocker_type", "unblocker", "wait_class")
+DERIVED_SCORED = ("access_tier_rollup", "buildability", "blocker_type", "unblocker")
 
-# Hint note -> fields that need first-party evidence (LOGIC_FREEZE §10)
 HINT_FIELD_MAP: dict[str, tuple[str, ...]] = {
     "Otter AI": ("mcp_exists",),
     "Devin": ("mcp_exists",),
     "Consensus": ("auth_primary",),
     "NotebookLM": ("access_tier", "api_type"),
     "PitchBook": ("api_type", "access_tier"),
-    "Twenty": ("business_type",),
-    # Harvest, Paygent, systeme.io, Waterfall.io, Reducto, higgsfield, Grain: none
+    "Twenty": ("is_open_source",),
 }
 
-# Apps with extra seeded first-party domains
 EXTRA_SEED_DOMAINS: dict[str, tuple[str, ...]] = {
     "Harvest": ("harvestapp.com", "getharvest.com"),
 }
@@ -243,56 +208,50 @@ class DiscoverResult(BaseModel):
 
 
 class ExtractResult(BaseModel):
-    """Atomic facts only. No verdict fields."""
+    """Atomic facts only. No verdict fields. No business_type overwrite."""
 
     one_liner: str = ""
-    business_type_confirmed: str = "no"  # yes | no
+    business_type_supported: str = "yes"  # transient; becomes flag if no
     docs_access: str = "unknown"
-    docs_location: str = "none"
     auth_primary: str = "unknown"
-    auth_secondary: list[str] = Field(default_factory=list)
     auth_detail: str = ""
     access_tier: str = "unknown"
     access_cost_note: str = ""
     api_type: str = "unknown"
-    api_breadth: str = "unknown"
     has_openapi_spec: str = "unknown"
     needs_instance_url: str = "unknown"
     has_webhooks: str = "unknown"
-    rate_limit_note: str = ""
     mcp_exists: str = "unknown"
-    mcp_access: str = "n_a"
+    is_open_source: str = "unknown"
     evidence: dict[str, str] = Field(default_factory=dict)
     confidence: dict[str, str] = Field(default_factory=dict)
     notes: str = ""
 
 
-def empty_unknown_row(app: dict[str, Any], *, flags: list[str] | None = None) -> dict[str, Any]:
-    """Row with all atomic enums unknown (schema_fail / no docs path)."""
-    evidence: dict[str, str] = {}
-    confidence = {f: "low" for f in ATOMIC_ENUM_FIELDS}
+def empty_unknown_row(
+    app: dict[str, Any],
+    *,
+    flags: list[str] | None = None,
+    docs_access: str = "unknown",
+) -> dict[str, Any]:
+    confidence = {f: "low" for f in GEMINI_FACT_FIELDS}
     return {
         "app_name": app["app_name"],
         "category": app.get("category", ""),
         "one_liner": "",
-        "business_type": "ai_native",  # overwritten by discover when available
-        "business_type_confirmed": "no",
-        "docs_access": "none_found",
-        "docs_location": "none",
+        "business_type": "ai_native",
+        "docs_access": docs_access,
         "auth_primary": "unknown",
-        "auth_secondary": [],
         "auth_detail": "",
         "access_tier": "unknown",
         "access_cost_note": "",
         "api_type": "unknown",
-        "api_breadth": "unknown",
         "has_openapi_spec": "unknown",
         "needs_instance_url": "unknown",
         "has_webhooks": "unknown",
-        "rate_limit_note": "",
         "mcp_exists": "unknown",
-        "mcp_access": "n_a",
-        "evidence": evidence,
+        "is_open_source": "unknown",
+        "evidence": {},
         "confidence": confidence,
         "flags": list(flags or []),
         "sources_fetched": [],
@@ -306,19 +265,17 @@ def empty_unknown_row(app: dict[str, Any], *, flags: list[str] | None = None) ->
 ALLOWED_VALUES: dict[str, tuple[str, ...]] = {
     "business_type": tuple(e.value for e in BusinessType),
     "docs_access": tuple(e.value for e in DocsAccess),
-    "docs_location": tuple(e.value for e in DocsLocation),
     "auth_primary": tuple(e.value for e in AuthScheme),
     "access_tier": tuple(e.value for e in AccessTier),
+    "access_tier_rollup": tuple(e.value for e in AccessTierRollup),
     "api_type": tuple(e.value for e in ApiType),
-    "api_breadth": tuple(e.value for e in ApiBreadth),
     "has_openapi_spec": tuple(e.value for e in YesNoUnknown),
     "needs_instance_url": tuple(e.value for e in YesNoUnknown),
     "has_webhooks": tuple(e.value for e in YesNoUnknown),
     "mcp_exists": tuple(e.value for e in McpExists),
-    "mcp_access": tuple(e.value for e in McpAccess),
+    "is_open_source": tuple(e.value for e in YesNoUnknown),
     "buildability": tuple(e.value for e in Buildability),
     "blocker_type": tuple(e.value for e in BlockerType),
     "unblocker": tuple(e.value for e in Unblocker),
-    "wait_class": tuple(e.value for e in WaitClass),
-    "business_type_confirmed": ("yes", "no"),
+    "business_type_supported": ("yes", "no"),
 }

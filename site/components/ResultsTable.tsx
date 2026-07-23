@@ -7,6 +7,7 @@ export type Row = {
   category?: string;
   business_type?: string;
   access_tier?: string;
+  access_tier_rollup?: string;
   buildability?: string;
   auth_primary?: string;
   auth_detail?: string;
@@ -15,7 +16,7 @@ export type Row = {
   evidence?: Record<string, string>;
 };
 
-const FILTERS = ["business_type", "access_tier", "buildability", "auth_primary"] as const;
+const FILTERS = ["business_type", "access_tier", "access_tier_rollup", "buildability", "auth_primary"] as const;
 
 export function ResultsTable({ rows }: { rows: Row[] }) {
   const [q, setQ] = useState("");

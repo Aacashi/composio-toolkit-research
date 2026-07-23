@@ -1,8 +1,8 @@
 # Composio Toolkit Research Agent
 
-Research pipeline that classifies apps for Composio toolkit **buildability** — focusing on credential access gates, not auth-mechanism complexity — plus a static findings page. Built for a Composio AI Product Ops Intern take-home.
+Research pipeline that classifies apps for Composio toolkit **buildability** (credential access gates), plus a static findings page.
 
-Atomic facts come from Gemini Flash-Lite + Firecrawl (first-party pages only). Buildability verdicts are derived in pure Python (`derive_verdict`) so the model cannot invent inconsistent triage labels.
+**AMENDMENT_3:** Tavily-only web access (via Composio SDK, with direct Tavily fallback). Stage 1 writes facts; Stage 2 derives verdicts later. Gemini 2.5 Flash-Lite for all LLM calls.
 
 ## Setup
 
@@ -10,104 +10,93 @@ Atomic facts come from Gemini Flash-Lite + Firecrawl (first-party pages only). B
 python -m venv .venv
 # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-cp .env.example .env   # fill GEMINI_API_KEY, FIRECRAWL_API_KEY, COMPOSIO_API_KEY
+cp .env.example .env
 ```
 
-Site (optional):
+### API keys you must provide
+
+| Variable | Where to get it | Used for |
+|---|---|---|
+| `GEMINI_API_KEY` | [Google AI Studio](https://aistudio.google.com/apikey) | Discover / extract / chunk-filter |
+| `COMPOSIO_API_KEY` | [Composio dashboard](https://app.composio.dev) | Tavily toolkit execute + catalog cross-check |
+| `COMPOSIO_USER_ID` | Composio entity / user id with Tavily connected | `tools.execute(..., user_id=...)` |
+| `COMPOSIO_AUTH_CONFIG_ID` | Auth config for the Tavily connection (e.g. `ac_...`) | Stored for connection setup / debugging |
+| `COMPOSIO_CONNECTED_ACCOUNT_ID` | Optional explicit connected-account id | Passed to `tools.execute` when set |
+| `TAVILY_API_KEY` | [Tavily](https://tavily.com) free tier | Connect Tavily inside Composio; also direct fallback |
+| `COMPOSIO_SHEETS_ID` | Optional | `--export-sheets` only |
+
+**Connect Tavily in Composio**
+
+1. Create a free Tavily API key (1,000 credits/month, no card).
+2. In Composio dashboard → Toolkits → Tavily → authenticate with that API key for your `COMPOSIO_USER_ID`.
+3. Set all env vars in `.env`.
+4. Verify: `python -m pipeline.run --app Stripe --verbose`
+
+If Composio’s Tavily toolkit cannot batch-extract, the client falls back to `https://api.tavily.com` automatically and prints `provider=direct`. That fallback is intentional and documented here.
+
+Firecrawl is **removed**. Do not set `FIRECRAWL_API_KEY`.
+
+## Three stages
+
+### Stage 1 — facts only
 
 ```bash
-cd site && npm install && npm run dev
-```
-
-## Run (10-app subset)
-
-```bash
+python -m pipeline.run --app Stripe --verbose   # one app, no run file write
 python -m pipeline.run --apps apps_10.json --resume
-```
-
-Creates the next unused `data/run_vN.json` (or resumes the file passed with `--run`). Apps already present are skipped when the file exists / `--resume` is set.
-
-## Run (full 100)
-
-Green the 10-app subset first. Then:
-
-```bash
 python -m pipeline.run --apps apps_100.json --resume --batch-size 25
 ```
 
-Firecrawl credits are tracked; the run aborts if the projected total would exceed **450**. Every scrape/search and Gemini call is disk-cached under `cache/`.
+Writes `data/run_vN.json` with Gemini facts + audit + composio cross-check.  
+**No** `buildability` / `access_tier_rollup` yet.
 
-## Score
+Tavily credits: warn at 700, abort projected at 850. Every search/extract and Gemini call is disk-cached under `cache/`. Per-app traces land in `debug/{app}.json`.
+
+### Stage 2 — derivation (no network)
 
 ```bash
-python -m eval.score --run run_v1.json
+python scripts/derive.py --run run_v1.json
+# → data/run_v1_derived.json
+
+python scripts/derive.py --gt   # ground_truth.json atoms → verdicts
 ```
 
-Reports **primary** (`access_tier`, `auth_primary`), **derived** (separately), then **secondary** fields. Deep (10 GT apps) and shallow (Composio agreement) are never blended.
+### Stage 3 — clustering
 
-## Ground truth (atoms only)
+**Not implemented.** Pure pandas crosstabs when you supply rules.
 
-1. Edit `data/ground_truth.json` — fill atomic enums + evidence. Do **not** hand-write verdict fields.
-2. Apply the same derivation the pipeline uses:
+## Ground truth
 
-```bash
-python scripts/apply_verdict.py
-```
+1. Edit `data/ground_truth.json` — atoms only (see DEFINITIONS.md).
+2. `python scripts/derive.py --gt`
+3. Score a **derived** run: `python -m eval.score --run run_v1_derived.json`
 
-Regenerate an empty template (wipes labels):
-
-```bash
-python scripts/build_template.py
-```
-
-## Composio cross-check
-
-Loaded once at pipeline startup. Catalog failure **degrades** to null fields and does not stop the run. Ambiguous fuzzy matches → `composio_supports=false`, `agrees_with_composio=n_a`.
-
-Re-run against an existing file:
+## Other commands
 
 ```bash
+python -m export.to_csv --run run_v1_derived.json
 python -m crosscheck.composio_check --run run_v1.json
+python scripts/test_verdict.py
 ```
 
-Optional Sheets sink (never fails the pipeline):
+## Site
 
 ```bash
-python -m pipeline.run --apps apps_10.json --export-sheets
-# or
-python -m crosscheck.composio_check --run run_v1.json --export-sheets
+cd site && npm install && npm run build
 ```
 
-Requires `COMPOSIO_SHEETS_ID` and a Google Sheets connected account in the Composio dashboard.
-
-## Export CSV
-
-```bash
-python -m export.to_csv --run run_v1.json
-```
+Placeholders only. Copy a derived run into `site/public/data.json` when ready.
 
 ## Outputs
 
 | path | purpose |
 |---|---|
-| `data/run_vN.json` | versioned pipeline results (never overwrite prior N) |
-| `data/ground_truth.json` | hand-labelled atoms (10 apps) |
-| `cache/` | Firecrawl + Gemini caches (gitignored) |
-| `site/public/data.json` | dataset for the static page |
-
-## Data notes
-
-- **Harvest:** first-party seeds include both `harvestapp.com` and `getharvest.com`. The hint note is a URL clarification only — it does not drive scored fields.
-- **Paygent Connect:** no URL; empty domain seed; unconstrained Call 1 search. High `unknown` is expected.
+| `data/run_vN.json` | Stage 1 facts |
+| `data/run_vN_derived.json` | Stage 2 + verdicts |
+| `debug/*.json` | Per-app traces |
+| `cache/` | Tavily + Gemini caches |
 
 ## Known limitations
 
-- Flash-Lite is used for all LLM calls; accuracy depends on first-party page coverage and guard strictness.
-- `api_breadth` is low-confidence by design.
-- Clustering / findings content are intentionally not implemented yet.
-- Composio catalog is a free auth cross-check only — not an answer key for access tier or buildability.
-
-## Stated assumptions (also on the site)
-
-1. Verdicts assume the **public / distributed** toolkit path.
-2. `cli_tool` rows are not connector candidates.
+- Flash-Lite for all LLM calls; accuracy depends on first-party coverage + guard.
+- Clustering / findings content not built yet.
+- Composio catalog is a free auth cross-check only — not an answer key for access_tier.

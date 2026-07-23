@@ -1,8 +1,4 @@
-"""Rebuild atoms-only ground_truth template for the 10-app subset.
-
-Human fills atomic fields only. Run scripts/apply_verdict.py afterwards.
-Does NOT invent values from a model.
-"""
+"""Rebuild atoms-only ground_truth template (AMENDMENT_3)."""
 
 from __future__ import annotations
 
@@ -24,31 +20,27 @@ TEN_NAMES = [
 ]
 
 ATOMIC_ALLOWED = {
-    "business_type": "infra_usage_based | saas_seat_based | ad_platform | data_vendor | commerce_platform | enterprise_sales | open_source | ai_native",
-    "business_type_confirmed": "yes | no",
+    "business_type": "infra_usage_based | saas_seat_based | ad_platform | data_vendor | commerce_platform | enterprise_sales | ai_native",
     "docs_access": "public | login_required | on_request | none_found",
-    "docs_location": "own_domain | docs_subdomain | third_party_host | none",
     "auth_primary": "api_key | pat | oauth2 | oauth1 | basic | jwt_keypair | hmac_signed | aws_sigv4 | session_only | none | unknown",
     "access_tier": "open | self_serve_free | self_serve_trial | card_required | plan_gated | approval_gated | partner_gated | no_public_access",
-    "api_type": "rest | graphql | both | soap | sdk_only | cli_tool | none | unknown",
-    "api_breadth": "narrow | medium | broad | unknown",
+    "api_type": "rest | graphql | both | cli_only | none | unknown",
     "has_openapi_spec": "yes | no | unknown",
     "needs_instance_url": "yes | no | unknown",
     "has_webhooks": "yes | no | unknown",
-    "mcp_exists": "official | community | none | unknown",
-    "mcp_access": "same_as_api | paid_only | waitlist | n_a",
+    "mcp_exists": "official_open | official_gated | community | none | unknown",
+    "is_open_source": "yes | no | unknown",
 }
 
-# Human does NOT fill these — apply_verdict.py derives them
-DERIVED = ("buildability", "blocker_type", "unblocker", "wait_class", "blocker")
+DERIVED = (
+    "access_tier_rollup",
+    "buildability",
+    "blocker_type",
+    "unblocker",
+    "blocker",
+)
 
-FREE_TEXT = [
-    "one_liner",
-    "auth_detail",
-    "access_cost_note",
-    "rate_limit_note",
-    "notes",
-]
+FREE_TEXT = ["one_liner", "auth_detail", "access_cost_note", "notes"]
 
 
 def main() -> None:
@@ -61,7 +53,6 @@ def main() -> None:
             "app_name": name,
             "category": app.get("category", ""),
             "hint_url": app.get("hint_url") or "",
-            "auth_secondary": [],
             "first_party_domains": [],
             "evidence": {f: "" for f in ATOMIC_ALLOWED},
             "confidence": {f: "high" for f in ATOMIC_ALLOWED},
@@ -69,21 +60,20 @@ def main() -> None:
         if not rows:
             row["_allowed_values"] = ATOMIC_ALLOWED
             row["_note"] = (
-                "Fill ATOMS only. Leave derived fields empty; "
-                "run: python scripts/apply_verdict.py"
+                "Fill ATOMS only. Leave derived empty; "
+                "run: python scripts/derive.py --gt"
             )
         for f in FREE_TEXT:
             row[f] = ""
         for f in ATOMIC_ALLOWED:
             row[f] = ""
         for f in DERIVED:
-            row[f] = ""  # placeholder; filled by apply_verdict.py
+            row[f] = ""
         rows.append(row)
 
     out = ROOT / "data" / "ground_truth.json"
     out.write_text(json.dumps(rows, indent=2), encoding="utf-8")
     print(f"wrote {out} ({len(rows)} atom-only template rows)")
-    print("derived fields empty until: python scripts/apply_verdict.py")
 
 
 if __name__ == "__main__":

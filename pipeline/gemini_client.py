@@ -46,7 +46,8 @@ def get_gemini_client():
     return genai.Client(api_key=api_key)
 
 
-MODEL_ID = "gemini-2.0-flash-lite"
+# Logic freeze: Flash-Lite for all three calls. Stable GA id.
+MODEL_ID = "gemini-2.5-flash-lite"
 
 
 def generate_json(
