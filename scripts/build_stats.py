@@ -236,6 +236,38 @@ def build_stats(rows: list[dict], gt_paths: list[Path]) -> dict:
     most_gated = max(cat_rows, key=lambda x: (x["gated_share"], x["gated"]))
     most_open = max(cat_rows, key=lambda x: (x["open_share"], x["open"]))
 
+    # B2 category × buildability (10 apps each → percentages)
+    cat_build_rows = []
+    for cat in cats:
+        sub = [r for r in rows if (r.get("category") or "unknown") == cat]
+        total = len(sub)
+        entry: dict = {"category": cat, "total": total}
+        for b in BUILD_ORDER:
+            cnt = sum(1 for r in sub if (r.get("buildability") or "unknown") == b)
+            entry[b] = cnt
+            entry[f"{b}_pct"] = round(100.0 * cnt / total, 1) if total else 0.0
+        cat_build_rows.append(entry)
+
+    # B3 business_type × buildability (Call-1 prior clusters)
+    btypes: list[str] = []
+    bt_seen: set[str] = set()
+    for r in rows:
+        bt = r.get("business_type") or "unknown"
+        if bt not in bt_seen:
+            bt_seen.add(bt)
+            btypes.append(bt)
+    bt_build_rows = []
+    for bt in btypes:
+        sub = [r for r in rows if (r.get("business_type") or "unknown") == bt]
+        total = len(sub)
+        entry = {"business_type": bt, "total": total}
+        for b in BUILD_ORDER:
+            cnt = sum(1 for r in sub if (r.get("buildability") or "unknown") == b)
+            entry[b] = cnt
+            entry[f"{b}_pct"] = round(100.0 * cnt / total, 1) if total else 0.0
+        bt_build_rows.append(entry)
+    bt_build_rows.sort(key=lambda x: -x["total"])
+
     # C blockers
     blocker_table = []
     for bt, cnt in btype.most_common():
@@ -311,9 +343,51 @@ def build_stats(rows: list[dict], gt_paths: list[Path]) -> dict:
     flag_counts = {k: sum(1 for r in rows if k in (r.get("flags") or [])) for k in FLAG_KEYS}
     two_paths = sum(1 for r in rows if r.get("integration_paths") == "two_paths")
 
-    # I deep
+    # I deep (pooled + per-trial)
     by_name = {r["app_name"]: r for r in rows}
     deep = deep_accuracy(by_name, gt_paths)
+    trials = []
+    trial_specs = [
+        ("trial1", "Original 10-app key", gt_paths[0]),
+        ("trial2", "Random batch 2", gt_paths[1]),
+        ("trial3", "Random batch 3", gt_paths[2]),
+    ]
+    for tid, label, path in trial_specs:
+        if not path.exists():
+            continue
+        t = deep_accuracy(by_name, [path])
+        trials.append(
+            {
+                "id": tid,
+                "label": label,
+                "path": str(path.name),
+                "overall": t["overall"],
+                "fields": {
+                    f: {
+                        "correct": t["fields"][f]["correct"],
+                        "base": t["fields"][f]["base"],
+                        "correct_pct_of_base": t["fields"][f]["correct_pct_of_base"],
+                    }
+                    for f in SCORED
+                },
+            }
+        )
+    deep["trials"] = trials
+    # Average of three trial overall %
+    if trials:
+        deep["trial_avg_pct"] = round(
+            sum(t["overall"]["correct_pct_of_base"] for t in trials) / len(trials), 1
+        )
+
+    # Pick one concrete sample miss for the page narrative (prefer access_tier wrong)
+    sample = None
+    for m in deep["misses"]:
+        if m["field"] == "access_tier" and m["bucket"] == "wrong":
+            sample = m
+            break
+    if sample is None and deep["misses"]:
+        sample = deep["misses"][0]
+    deep["sample_miss"] = sample
 
     # J shallow
     agree = Counter((r.get("agrees_with_composio") or "n_a") for r in rows)
@@ -352,6 +426,16 @@ def build_stats(rows: list[dict], gt_paths: list[Path]) -> dict:
             "most_gated_detail": f"{most_gated['gated']}/{most_gated['total']}",
             "most_open_category": most_open["category"],
             "most_open_detail": f"{most_open['open']}/{most_open['total']}",
+        },
+        "B2_category_buildability": {
+            "rows": cat_build_rows,
+            "verdicts": BUILD_ORDER,
+            "note": "10 apps per product category; percentages within each category.",
+        },
+        "B3_business_type_buildability": {
+            "rows": bt_build_rows,
+            "verdicts": BUILD_ORDER,
+            "note": "Call-1 business_type prior vs rules-engine buildability.",
         },
         "C_blockers": blocker_table,
         "D_buildability": build_table,

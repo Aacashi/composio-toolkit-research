@@ -1,7 +1,4 @@
-"""Generate single static findings index.html from stats.json + final.json.
-
-Rules-engine output only — no hardcoded counts. Concise research memo layout.
-"""
+"""Generate human-skimmable findings case study (index.html) from stats + final JSON."""
 
 from __future__ import annotations
 
@@ -46,16 +43,15 @@ def short_url(url: str) -> str:
         return "—"
     p = urlparse(url)
     host = (p.netloc or "").removeprefix("www.")
-    path = p.path or ""
-    if len(path) > 28:
-        path = path[:25] + "…"
-    label = f"{host}{path}" if host else url[:40]
-    return f'<a href="{esc(url)}">{esc(label)}</a>'
+    path = (p.path or "")[:28] + ("…" if len(p.path or "") > 28 else "")
+    return f'<a href="{esc(url)}">{esc(host + path)}</a>'
 
 
 def table(headers: list[str], rows: list[list[str]]) -> str:
     th = "".join(f"<th>{esc(h)}</th>" for h in headers)
-    body = "".join("<tr>" + "".join(f"<td>{c}</td>" for c in row) + "</tr>" for row in rows)
+    body = "".join(
+        "<tr>" + "".join(f"<td>{c}</td>" for c in row) + "</tr>" for row in rows
+    )
     return f"<table><thead><tr>{th}</tr></thead><tbody>{body}</tbody></table>"
 
 
@@ -64,175 +60,135 @@ def verdict_cell(v: str) -> str:
 
 
 def cat_short(name: str) -> str:
-    # Shorten long category labels for the full table
     return (
-        name.replace("Marketing, Ads, Email and Social", "Marketing / Ads")
+        (name or "")
+        .replace("Marketing, Ads, Email and Social", "Marketing")
         .replace("Communications and Messaging", "Comms")
-        .replace("Developer, Infra and Data platforms", "Dev / Infra")
+        .replace("Developer, Infra and Data platforms", "Dev/Infra")
         .replace("Productivity and Project Management", "Productivity")
-        .replace("AI, Research and Media-native", "AI / Media")
-        .replace("Data, SEO and Scraping", "Data / SEO")
+        .replace("AI, Research and Media-native", "AI/Media")
+        .replace("Data, SEO and Scraping", "Data/SEO")
         .replace("Support and Helpdesk", "Support")
         .replace("Finance and Fintech", "Finance")
         .replace("CRM and Sales", "CRM")
     )
 
 
-def build_html(stats: dict, rows: list[dict], *, repo_url: str, research_repo: str) -> str:
+def pct_cell(pct: float) -> str:
+    if pct == 0:
+        return "—"
+    return f"{pct:g}%"
+
+
+def build_html(stats: dict, rows: list[dict], *, research_repo: str, findings_repo: str) -> str:
     h = stats["headline"]
     n = stats["n"]
     deep = stats["I_deep_verification"]
-    shallow = stats["J_shallow_composio"]
     g = stats["G_secondary"]
     cov = stats["H_coverage"]
     e = stats["E_auth_x_buildability"]
     bcat = stats["B_category_rollup"]
     queues = stats["F_queues"]
+    cat_build = stats["B2_category_buildability"]
+    bt_build = stats["B3_business_type_buildability"]
+    trials = deep.get("trials") or []
+    trial_avg = deep.get("trial_avg_pct", deep["overall"]["correct_pct_of_base"])
 
-    deep_pct = deep["overall"]["correct_pct_of_base"]
-    deep_base = deep["overall"]["base"]
-    deep_correct = deep["overall"]["correct"]
-    tier_pct = deep["fields"]["access_tier"]["correct_pct_of_base"]
-    api_pct = deep["fields"]["api_type"]["correct_pct_of_base"]
-    auth_pct = deep["fields"]["auth_primary"]["correct_pct_of_base"]
-    mcp_pct = deep["fields"]["mcp_exists"]["correct_pct_of_base"]
+    tier = deep["fields"]["access_tier"]
+    auth = deep["fields"]["auth_primary"]
+    api = deep["fields"]["api_type"]
+    mcp = deep["fields"]["mcp_exists"]
 
-    # Compact auth counts: "oauth2 50 · api_key 31 · …"
-    auth_line = " · ".join(f"{r['value']} {r['count']}" for r in stats["A_auth_dominates"])
+    sample = deep.get("sample_miss") or {}
+    sample_app = sample.get("app", "—")
+    sample_field = sample.get("field", "—")
+    sample_exp = sample.get("expected", "—")
+    sample_act = sample.get("actual", "—")
 
-    # A — count + % only (drop redundant third wording)
-    a_rows = [
-        [esc(r["value"]), str(r["count"]), f"{r['pct_of_100']}%"]
-        for r in stats["A_auth_dominates"]
-    ]
-
-    b_rows = [
-        [
-            esc(r["category"]),
-            str(r["open"]),
-            str(r["paid"]),
-            str(r["gated"]),
-            str(r["unknown"]),
-            str(r["total"]),
-        ]
-        for r in bcat["rows"]
-    ]
-
-    # C — skip blocker_type=none (already in easy_win count)
-    c_rows = [
-        [esc(r["blocker_type"]), str(r["count"]), esc(r["who_acts"])]
-        for r in stats["C_blockers"]
-        if r["blocker_type"] != "none"
-    ]
-
-    d_rows = [
-        [esc(r["verdict"]), str(r["count"]), esc(r["meaning"])]
-        for r in stats["D_buildability"]
-    ]
-
-    # E — drop all-zero columns for readability (keep if any non-zero)
-    cols = [c for c in e["columns"] if any(r.get(c, 0) for r in e["rows"])]
-    e_headers = ["auth"] + [c.replace("needs_", "").replace("easy_but_", "paid_") for c in cols] + ["n"]
-    e_rows = []
-    for r in e["rows"]:
-        if r["total"] == 0:
-            continue
-        e_rows.append([esc(r["row"])] + [str(r.get(c, 0)) for c in cols] + [str(r["total"])])
-
-    f_rows = [
-        [esc(r["who_must_act"]), str(r["count"]), esc(r["typical_wait"]), esc(r["work_kind"])]
-        for r in queues["rows"]
-    ]
-
-    g_rows = [
-        ["OpenAPI", f"yes {g['has_openapi_spec']['yes']} · no {g['has_openapi_spec']['no']} · unk {g['has_openapi_spec']['unknown']}"],
-        ["Instance URL", f"yes {g['needs_instance_url']['yes']} · no {g['needs_instance_url']['no']} · unk {g['needs_instance_url']['unknown']}"],
-        ["Webhooks", f"yes {g['has_webhooks']['yes']} · no {g['has_webhooks']['no']} · unk {g['has_webhooks']['unknown']}"],
-        [
-            "MCP",
-            (
-                f"open {g['mcp_exists']['official_open']} · gated {g['mcp_exists']['official_gated']} · "
-                f"none {g['mcp_exists']['none']} · unk {g['mcp_exists']['unknown']}"
-            ),
-        ],
-    ]
-
-    deep_rows = [
-        [
-            esc(field),
-            str(d["correct"]),
-            str(d["wrong"]),
-            str(d["honestly_unknown"]),
-            f"{d['correct_pct_of_base']}%",
-        ]
-        for field, d in deep["fields"].items()
-    ]
-
-    causes = {
-        ("Twenty", "access_tier"): "trial vs free boundary",
-        ("Zendesk", "access_tier"): "public path → approval_gated vs GT trial",
-        ("Notion", "access_tier"): "missed marketplace review (docs ambiguous)",
-        ("Notion", "auth_primary"): "Basic exchange confused with primary (GT oauth2)",
-        ("Ahrefs", "access_tier"): "Connect partner path vs plain API plan_gated",
-        ("Ahrefs", "mcp_exists"): "open vs gated MCP",
-        ("Meta Ads", "mcp_exists"): "presence wiped (no MCP URL); GT none",
-        ("fanbasis", "access_tier"): "docs password-walled; homepage only",
-        ("DealCloud", "mcp_exists"): "open vs gated MCP",
-        ("QuickBooks", "access_tier"): "path override → free vs GT approval_gated",
-        ("Pylon", "access_tier"): "plan_gated vs GT trial",
-        ("Pylon", "auth_primary"): "api_key vs GT pat",
-    }
-    miss_index = {(m["app"], m["field"]): m for m in deep["misses"]}
-    miss_priority = [
-        ("Twenty", "access_tier"),
-        ("Zendesk", "access_tier"),
-        ("Notion", "access_tier"),
-        ("Notion", "auth_primary"),
-        ("Ahrefs", "access_tier"),
-        ("Meta Ads", "mcp_exists"),
-        ("fanbasis", "access_tier"),
-        ("DealCloud", "mcp_exists"),
-        ("QuickBooks", "access_tier"),
-        ("Pylon", "access_tier"),
-    ]
-    miss_rows = []
-    for app, field in miss_priority:
-        m = miss_index.get((app, field))
-        if not m:
-            continue
-        miss_rows.append(
+    trial_rows = []
+    for t in trials:
+        trial_rows.append(
             [
-                esc(m["app"]),
-                esc(m["field"]),
-                esc(m["expected"]),
-                esc(m["actual"]),
-                esc(causes.get((m["app"], m["field"]), m["bucket"])),
+                esc(t["label"]),
+                f"{t['overall']['correct']}/{t['overall']['base']}",
+                f"{t['overall']['correct_pct_of_base']}%",
+                f"{t['fields']['access_tier']['correct_pct_of_base']}%",
+                f"{t['fields']['auth_primary']['correct_pct_of_base']}%",
+                f"{t['fields']['api_type']['correct_pct_of_base']}%",
+                f"{t['fields']['mcp_exists']['correct_pct_of_base']}%",
+            ]
+        )
+    if trials:
+        trial_rows.append(
+            [
+                "Average of 3 trials",
+                "—",
+                f"{trial_avg}%",
+                f"{round(sum(t['fields']['access_tier']['correct_pct_of_base'] for t in trials)/len(trials),1)}%",
+                f"{round(sum(t['fields']['auth_primary']['correct_pct_of_base'] for t in trials)/len(trials),1)}%",
+                f"{round(sum(t['fields']['api_type']['correct_pct_of_base'] for t in trials)/len(trials),1)}%",
+                f"{round(sum(t['fields']['mcp_exists']['correct_pct_of_base'] for t in trials)/len(trials),1)}%",
             ]
         )
 
-    version_rows = [
-        [esc(v["version"]), esc(v["overall"])] for v in stats["K_version_history"]
+    field_rows = [
+        ["access_tier (highest judgement)", f"{tier['correct']}/{tier['base']}", f"{tier['correct_pct_of_base']}%"],
+        ["auth_primary", f"{auth['correct']}/{auth['base']}", f"{auth['correct_pct_of_base']}%"],
+        ["api_type (most factual)", f"{api['correct']}/{api['base']}", f"{api['correct_pct_of_base']}%"],
+        ["mcp_exists", f"{mcp['correct']}/{mcp['base']}", f"{mcp['correct_pct_of_base']}%"],
     ]
 
-    # Full table: drop redundant blocker_type (implied by verdict/unblocker)
+    # Category × buildability % (10 apps each)
+    cat_pct_rows = []
+    for r in cat_build["rows"]:
+        cat_pct_rows.append(
+            [
+                esc(cat_short(r["category"])),
+                pct_cell(r["easy_win_pct"]),
+                pct_cell(r["easy_but_paid_pct"]),
+                pct_cell(r["needs_review_pct"]),
+                pct_cell(r["needs_outreach_pct"]),
+                pct_cell(r["blocked_pct"]),
+                pct_cell(r["unknown_pct"]),
+            ]
+        )
+
+    # Business type × buildability %
+    bt_pct_rows = []
+    for r in bt_build["rows"]:
+        bt_pct_rows.append(
+            [
+                esc(r["business_type"]),
+                str(r["total"]),
+                pct_cell(r["easy_win_pct"]),
+                pct_cell(r["easy_but_paid_pct"]),
+                pct_cell(r["needs_review_pct"]),
+                pct_cell(r["needs_outreach_pct"]),
+                pct_cell(r["blocked_pct"]),
+                pct_cell(r["unknown_pct"]),
+            ]
+        )
+
+    # Full 100 table last
     by_build: dict[str, list] = {b: [] for b in BUILD_ORDER}
     for r in rows:
         by_build.setdefault(r.get("buildability") or "unknown", []).append(r)
     for b in by_build:
         by_build[b].sort(key=lambda x: (x.get("app_name") or "").lower())
 
-    full_sections = []
+    full_bits = []
     for b in BUILD_ORDER:
         group = by_build.get(b) or []
         if not group:
             continue
-        full_sections.append(f'<h3 id="{esc(b)}">{esc(b)} — {len(group)} of {n}</h3>')
+        full_bits.append(f"<h3>{esc(b)} — {len(group)} of {n}</h3>")
         fr = []
         for r in group:
             fr.append(
                 [
                     esc(r.get("app_name")),
                     esc(cat_short(r.get("category") or "")),
+                    esc(r.get("business_type") or "—"),
                     verdict_cell(r.get("buildability") or "unknown"),
                     esc(r.get("unblocker") or ""),
                     esc(r.get("access_tier") or "unknown"),
@@ -242,46 +198,56 @@ def build_html(stats: dict, rows: list[dict], *, repo_url: str, research_repo: s
                     short_url((r.get("evidence") or {}).get("access_tier") or ""),
                 ]
             )
-        full_sections.append(
+        full_bits.append(
             table(
-                ["app", "category", "verdict", "who acts", "tier", "auth", "api", "MCP", "evidence"],
+                [
+                    "app",
+                    "category",
+                    "business_type",
+                    "verdict",
+                    "who acts",
+                    "tier",
+                    "auth",
+                    "api",
+                    "MCP",
+                    "evidence",
+                ],
                 fr,
             )
         )
 
-    defeated_apps = ", ".join(cov["docs_none_apps"] + ["Salesforce Commerce Cloud"])
-    unknown_tier = ", ".join(cov["access_tier_unknown_apps"])
-
     data_json = json.dumps(rows, ensure_ascii=False)
-    stats_embed = json.dumps(stats, ensure_ascii=False)
+    stats_json = json.dumps(stats, ensure_ascii=False)
 
     css = """
 *{box-sizing:border-box}
-body{margin:0;font:15px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#111;background:#fff}
-main{max-width:1100px;margin:0 auto;padding:1.25rem 1rem 2.5rem}
-h1{font-size:1.35rem;font-weight:700;line-height:1.35;margin:0 0 .4rem}
-h2{font-size:1.05rem;margin:1.6rem 0 .5rem;padding-bottom:.2rem;border-bottom:1px solid #111}
-h3{font-size:.95rem;margin:1rem 0 .35rem}
-p,li{margin:.35rem 0;max-width:72ch}
-.sub{color:#333;margin:0 0 1rem;font-size:.92rem}
-.stats{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:.5rem;margin:0 0 1.25rem}
-@media(max-width:900px){.stats{grid-template-columns:repeat(3,1fr)}}
-@media(max-width:520px){.stats{grid-template-columns:repeat(2,1fr)}}
-.stat{border:1px solid #111;padding:.55rem .65rem;min-height:4.2rem}
-.stat .n{display:block;font-size:1.35rem;font-weight:700;line-height:1.1;word-break:break-word}
-.stat .l{font-size:.75rem;line-height:1.25;color:#222}
-table{border-collapse:collapse;width:100%;margin:.35rem 0 1rem;font-size:.84rem}
+body{margin:0;font:16px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#111;background:#fff}
+main{max-width:820px;margin:0 auto;padding:1.5rem 1.1rem 3rem}
+h1{font-size:1.45rem;line-height:1.3;margin:0 0 .5rem;font-weight:700}
+h2{font-size:1.1rem;margin:1.75rem 0 .55rem;padding-bottom:.25rem;border-bottom:1px solid #111}
+h3{font-size:.95rem;margin:1.1rem 0 .4rem}
+p,li{margin:.4rem 0;max-width:70ch}
+ul{padding-left:1.15rem;margin:.35rem 0 .8rem}
+.lead{font-size:1.02rem;margin:0 0 1rem}
+.meta{color:#333;font-size:.92rem;margin:0 0 1.25rem}
+.proof{border:1px solid #111;padding:.7rem .85rem;margin:0 0 1.25rem;font-size:.92rem}
+.proof a{font-weight:600}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:.5rem;margin:1rem 0 1.25rem}
+@media(max-width:640px){.stats{grid-template-columns:repeat(2,1fr)}}
+.stat{border:1px solid #111;padding:.55rem .65rem}
+.stat b{display:block;font-size:1.4rem;line-height:1.1}
+.stat span{font-size:.78rem}
+table{border-collapse:collapse;width:100%;margin:.5rem 0 1rem;font-size:.82rem}
 th,td{border:1px solid #111;padding:.28rem .4rem;text-align:left;vertical-align:top}
-th{background:#f2f2f2;font-weight:600}
-td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+th{background:#f3f3f3}
 .swatch{display:inline-block;width:.55rem;height:.55rem;border:1px solid #111;margin-right:.3rem;vertical-align:middle}
-.note{font-size:.9rem;margin:.25rem 0 .75rem}
 .box{border:1px solid #111;padding:.75rem .9rem;margin:1rem 0}
-footer{margin-top:1.5rem;padding-top:.6rem;border-top:1px solid #111;font-size:.85rem}
+.flow{font-family:ui-monospace,Consolas,monospace;font-size:.84rem;line-height:1.55;border:1px solid #111;padding:.7rem .85rem;margin:.6rem 0 1rem;white-space:pre-wrap;background:#fafafa}
+footer{margin-top:2rem;padding-top:.7rem;border-top:1px solid #111;font-size:.85rem}
 a{color:#111}
-code{font-size:.9em}
-.two-col{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
-@media(max-width:800px){.two-col{grid-template-columns:1fr}}
+.full{max-width:1100px}
+.full-wrap{margin-left:calc(50% - 50vw);margin-right:calc(50% - 50vw);padding:0 max(1rem, calc(50vw - 550px))}
+code{font-size:.88em}
 """
 
     return f"""<!DOCTYPE html>
@@ -289,103 +255,208 @@ code{font-size:.9em}
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Composio toolkit research — 100-app findings</title>
+<title>Composio toolkit research — case study</title>
 <style>{css}</style>
 </head>
 <body>
 <main>
 
-<h1>Of {n} apps: {h['easy_win']} self-serve today, {h['needs_review']} need vendor approval,
-{h['needs_outreach']} need sales outreach, {h['blocked']} have no usable API
-({h['easy_but_paid']} paid-first, {h['buildability_unknown']} unclassified).
-Accuracy on {deep['sample_apps']} hand-labelled apps ({deep_base} labels):
-<strong>{deep_pct}%</strong> ({deep_correct}/{deep_base}) —
-tier {tier_pct}% · auth {auth_pct}% · api {api_pct}% · MCP {mcp_pct}%.</h1>
-<p class="sub">Public/distributed integration path (Composio ships multi-customer toolkits).
-Auth mix: {esc(auth_line)}.</p>
+<h1>Of {n} apps, {h['easy_win']} can ship with self-serve credentials today,
+{h['needs_review']} need a vendor to approve, {h['needs_outreach']} need a sales conversation,
+and {h['blocked']} have no usable API.</h1>
+<p class="lead">Plus {h['easy_but_paid']} that need payment first and {h['buildability_unknown']} still unclassified.
+Classified on the <strong>public / distributed</strong> path — Composio ships toolkits many customers install.
+The product question is not “how hard is the API?” but “who has to say yes before an engineer can start?”</p>
+
+<div class="proof">
+<strong>Proof / code:</strong>
+<a href="{esc(research_repo)}">{esc(research_repo)}</a>
+(full research pipeline on <code>master</code>).
+Regenerate with <code>prepare_final.py → build_stats.py → build_page.py</code>.
+</div>
 
 <div class="stats">
-  <div class="stat"><span class="n">{h['easy_win']}</span><span class="l">easy_win</span></div>
-  <div class="stat"><span class="n">{h['needs_review']}</span><span class="l">needs_review</span></div>
-  <div class="stat"><span class="n">{h['needs_outreach']}</span><span class="l">needs_outreach</span></div>
-  <div class="stat"><span class="n">{h['blocked']}</span><span class="l">blocked</span></div>
-  <div class="stat"><span class="n">{h['access_tier_unknown']}</span><span class="l">tier unknown</span></div>
-  <div class="stat"><span class="n">{h['most_common_blocker_count']}</span><span class="l">{esc(h['most_common_blocker'])} (top blocker)</span></div>
+  <div class="stat"><b>{h['easy_win']}</b><span>easy_win</span></div>
+  <div class="stat"><b>{h['needs_review']}</b><span>needs_review</span></div>
+  <div class="stat"><b>{h['needs_outreach']}</b><span>needs_outreach</span></div>
+  <div class="stat"><b>{h['blocked']}</b><span>blocked</span></div>
 </div>
 
-<h2>Proof (up front)</h2>
-<p class="note">Deep check on {deep['sample_apps']} apps × 4 fields. Correct / wrong / honestly unknown —
-never blended with Composio catalog shallow check
-(yes {shallow['yes']} · disagrees {shallow['disagrees']} · n_a {shallow['n_a']} of {n}).
-Same rules engine on labels and agent output.</p>
-{table(['field', 'correct', 'wrong', 'unk', '%'], deep_rows)}
-{table(['app', 'field', 'expected', 'actual', 'cause'], miss_rows)}
-<p class="note"><strong>Docs support two readings:</strong>
-Notion (marketplace vs unlisted public) ·
-Ahrefs (Connect partner vs plan-gated API) ·
-Twenty/Zendesk (free vs trial).</p>
-<p class="note"><strong>Defeated:</strong> {esc(defeated_apps)}.
-<strong>Tier unknown ({cov['access_tier_unknown']} of {n}):</strong> {esc(unknown_tier)}.</p>
-{table(['version', 'score'], version_rows)}
-<p class="note">Prompt tweaks moved little; post-loop code guards lifted the 3-trial average ~58%→~61%.</p>
+<h2>Pipeline</h2>
+<p>Core idea: reverse-engineer vendor incentives into a <code>business_type</code> prior, use that prior to
+decide <em>where</em> documentation usually lives, search there under a tight budget, extract only cited facts,
+then let Python — not the LLM — decide the ops verdict.</p>
+<div class="flow">app + category + hint
+  → Call 1 discover (Gemini Flash-Lite + Tavily search, ≤6 tool calls)
+      · classify business_type (incentive prior)
+      · prior reshapes queries (infra→quickstart/keys; ads→Marketing API + app review;
+        enterprise→partner / contact sales; data vendor→pricing tiers; …)
+      · fill six URL slots: auth, pricing/access, API index, OpenAPI, webhooks, MCP
+  → URL liveness check (dead auth/pricing URLs nulled; flags dead_url_skipped)
+  → fetch first-party pages (Tavily extract via Composio SDK; budget-capped)
+  → Call 2 extract (no tools): path fields, auth, api_type, MCP, OpenAPI, webhooks
+      · must cite evidence URLs; access_tier is NOT guessed by Gemini
+  → if scored fields still unknown → one targeted second round (≤2 more searches, more pages)
+  → merge_extract (prefer second-round on auth/path contradictions)
+  → post-loop guards (no LLM):
+      · prefer second-round values logged in contradiction notes
+      · wipe MCP presence if no MCP-related URL was fetched
+  → derive access_tier from path fields → rules-engine derive_verdict
+      → buildability / blocker / unblocker / rollup
+  → append row (offline full apply_guard available separately)</div>
+<p><strong>Where a human was required:</strong> writing ground truth before any score,
+locking the public-path assumption, defining enum boundaries (trial vs free, partner vs plan),
+and deciding that cheap code guards beat further prompt-only tweaks on Flash-Lite.</p>
+
+<h2>Data types engineered beyond the Notion brief</h2>
+<p>The assignment already asked for category + one-liner, auth method(s), self-serve vs gated,
+API surface (REST/GraphQL + MCP), buildability + blocker, and evidence URLs.
+Those stay as the product spine. On top of that brief I added a few closed-enum signals
+I expected to matter for <em>search strategy</em> and for a clean ops queue — then derived
+a short tag set so clustering / cross-tabs stay decision-shaped, not exploratory ML.</p>
+
+<p><strong>Extra atoms I added (not restating the Notion list):</strong></p>
+<ul>
+<li><strong><code>business_type</code></strong> — incentive prior for Call 1 only
+(infra usage-based, SaaS seat-based, ad platform, data vendor, commerce, enterprise sales, AI-native).
+Hypothesis: vendors who benefit from third parties hitting their API publish keys/docs where strangers find them;
+partner / enterprise / ads-review businesses bury credentials differently — so the prior changes <em>where to search</em>,
+not the final verdict.</li>
+<li><strong><code>docs_access</code></strong> — can a stranger read docs without a sales call
+(<code>public</code> / <code>login_required</code> / <code>on_request</code> / <code>none_found</code>).
+Separates “API exists” from “docs are reachable enough to research.”</li>
+<li><strong><code>integration_paths</code> + <code>private_path_access</code> / <code>public_path_access</code> + <code>path_evidence</code></strong> —
+many vendors offer a private self-serve token <em>and</em> a public distributed app that needs review.
+Composio ships multi-customer toolkits, so these fields force the public path into the record
+instead of accidentally scoring the easy internal token.</li>
+<li><strong><code>has_openapi_spec</code>, <code>has_webhooks</code>, <code>needs_instance_url</code>, <code>is_open_source</code></strong> —
+build-convenience and setup signals beyond “is there an API.” OpenAPI speeds scaffolding;
+webhooks matter for event toolkits; instance URL flags self-hosted / tenant base URLs;
+open-source is its own boolean (not a business_type).</li>
+<li><strong><code>flags[]</code> + confidence + short free-text notes</strong> —
+machine-readable failure modes (<code>dead_url_skipped</code>, <code>second_round_used</code>,
+<code>business_type_unconfirmed</code>, …) so honest unknowns stay auditable. Free text is for humans only — never clustered.</li>
+</ul>
+
+<p><strong>Derived columns (rules engine, not the LLM):</strong></p>
+<ul>
+<li><strong><code>access_tier</code></strong> — from path fields (Gemini does not emit the tier).
+Answers the stranger-with-credentials test on the public path
+(<code>self_serve_free</code> / trial / card / plan / approval / partner / no public access / unknown).</li>
+<li><strong><code>access_tier_rollup</code></strong> — collapses fine tiers into a few tags:
+<code>open</code> · <code>paid</code> · <code>gated</code> · <code>unknown</code>.
+Kept deliberately small so category / business_type cross-tabs stay readable.</li>
+<li><strong><code>buildability</code></strong> — ops verdict from rollup + API existence:
+<code>easy_win</code> · <code>easy_but_paid</code> · <code>needs_review</code> · <code>needs_outreach</code> · <code>blocked</code> · <code>unknown</code>.</li>
+<li><strong><code>blocker_type</code> + <code>unblocker</code></strong> (+ one-line <code>blocker</code>) —
+what the wait is, and <em>who must act</em> (<code>nobody</code>, finance, vendor human, BD).
+That is the queue Composio actually runs.</li>
+</ul>
+
+<p><strong>How this becomes clustering without fake ML:</strong>
+the useful “clusters” are these short derived tags, not embeddings.
+I kept the rollup and buildability enums small on purpose — enough tags to separate the ultimate decision
+(can an engineer start today, or who has to say yes?) and not so many that every row is unique.
+<code>business_type</code> clusters search behaviour; <code>access_tier_rollup</code> / <code>buildability</code> /
+<code>unblocker</code> cluster the backlog for humans. Auth stays an implementation detail, not a cluster key.</p>
+
+<h2>Verification</h2>
+<p>Hand-labelled sample: {deep['sample_apps']} apps across <strong>three</strong> ground-truth sets
+(4 scored fields each). Pooled: {deep['overall']['correct']} correct,
+{deep['overall']['wrong']} wrong, {deep['overall']['honestly_unknown']} honestly unknown
+→ <strong>{deep['overall']['correct_pct_of_base']}%</strong> of {deep['overall']['base']}.
+Average of three trial overall scores: <strong>{trial_avg}%</strong>.</p>
+<p><strong>Judgement vs fact:</strong> weakest is <code>access_tier</code> at {tier['correct_pct_of_base']}%;
+most factual is <code>api_type</code> at {api['correct_pct_of_base']}%.
+Auth {auth['correct_pct_of_base']}%; MCP {mcp['correct_pct_of_base']}%.</p>
+
+{table(['trial', 'overall', '%', 'tier', 'auth', 'api', 'MCP'], trial_rows)}
+{table(['field', 'correct/base', '%'], field_rows)}
+
+<p><strong>One sample miss:</strong> {esc(sample_app)} · {esc(sample_field)} —
+expected <code>{esc(sample_exp)}</code>, got <code>{esc(sample_act)}</code>.
+Typical misses are boundary calls (trial vs free; partner vs plan) or missing first-party docs.
+Same rules engine on GT and agent output → a verdict gap always traces to a fact gap.</p>
+
+<h2>Constraints</h2>
+<div class="box">
+<ul>
+<li><strong>Local compute.</strong> Laptop hangs under Ollama / local models, so local open-weight inference was ruled out.</li>
+<li><strong>Model choice.</strong> Used Gemini Flash-Lite (free-tier) instead — weak reasoning for boundary judgements
+(<code>access_tier</code> especially), but usable free API quota.</li>
+<li><strong>Key rotation.</strong> Rotated through four free Gemini API keys to stay inside free quota for the 100-app run.</li>
+<li><strong>Search / crawl budget.</strong> Hard cap of six Tavily search tool calls per app (plus a small second-round budget).
+That limit meant many documentation links were never found or fetched → incomplete evidence
+→ the model had to fill gaps → hallucinations and field errors.</li>
+<li><strong>API rate limits.</strong> Free-tier Gemini + Tavily rate limits slowed runs and forced conservative budgets
+(roughly two model calls and a handful of page fetches per app; no paid vendor accounts).</li>
+<li><strong>No second verification agent.</strong> Budget did not allow a separate verifier pass over scored fields.</li>
+<li><strong>If unconstrained, next steps would be:</strong>
+(1) add a second verification agent;
+(2) use a stronger reasoning model to lift judgement fields;
+(3) raise search tooling from 6 → ~15 calls;
+(4) allow 3–5 research rounds instead of one optional second round.</li>
+<li><strong>Near-term with remaining free quota:</strong> ship three prompt fixes
+(trial/free detect, MCP gated-from-page-text, tighter auth conflict handling) —
+projected accuracy lift ~8 points (~60–61% → ~65–68%).</li>
+</ul>
+</div>
+
+<h2>Buildability by product category</h2>
+<p class="meta">Ten apps in each category. Cells are % of that category (not % of 100).</p>
+{table(
+    ['category', 'easy_win', 'easy_but_paid', 'needs_review', 'needs_outreach', 'blocked', 'unknown'],
+    cat_pct_rows,
+)}
+
+<h2>Buildability by business_type (Call-1 prior)</h2>
+<p class="meta">Same verdict mix, grouped by the incentive prior that steered search.</p>
+{table(
+    ['business_type', 'n', 'easy_win', 'easy_but_paid', 'needs_review', 'needs_outreach', 'blocked', 'unknown'],
+    bt_pct_rows,
+)}
 
 <h2>Patterns</h2>
-<p class="note"><strong>Auth ≠ buildability.</strong>
-{e['api_key_not_easy_win']} of {e['api_key_total']} api_key apps are not easy_win;
-oauth2 spans {e['oauth2_distinct_buildability_count']} verdicts. Triage by who must say yes.</p>
-{table(e_headers, e_rows)}
-<p class="note"><strong>Queues.</strong> {esc(queues['takeaway'])}</p>
-{table(['who acts', 'n', 'wait', 'work'], f_rows)}
-
-<h2>Required counts</h2>
-<div class="two-col">
-<div>
-<p class="note">Auth (of {n}).</p>
-{table(['auth', 'n', '%'], a_rows)}
-<p class="note">Blockers excl. none.</p>
-{table(['blocker', 'n', 'who'], c_rows)}
-</div>
-<div>
-<p class="note">Verdicts.</p>
-{table(['verdict', 'n', 'means'], d_rows)}
-<p class="note">Secondary (of {n}). MCP present but not easy_win: {g['mcp_present_not_easy_win']} of {g['mcp_present']}.</p>
-{table(['signal', 'breakdown'], g_rows)}
-</div>
-</div>
-<p class="note">Categories by access_tier_rollup — most gated {esc(bcat['most_gated_category'])} ({bcat['most_gated_detail']});
-most open {esc(bcat['most_open_category'])} ({bcat['most_open_detail']}).</p>
-{table(['category', 'open', 'paid', 'gated', 'unk', 'n'], b_rows)}
-
-<h2>All 100 apps</h2>
-<p class="note">Sorted easy→hard; A–Z within group. “Who acts” replaces a separate blocker column (same mapping).</p>
-{''.join(full_sections)}
-
-<h2>Method</h2>
-<p>Discover agent (Gemini + Tavily search) → Tavily extract via Composio SDK → no-tools extract →
-post-loop guards (second-round auth/path preference; MCP URL presence) →
-Python rules engine for verdicts (not ML clustering).</p>
-<p class="note">Human-required: hand GT (30 apps), public-path assumption, enum boundaries,
-diagnosing prompt vs code fixes.</p>
-
-<div class="box">
-<h2>Constraints</h2>
-<p>Free tiers only (Flash-lite, Tavily credits, no paid app accounts) → ~2 model calls and ≤6 pages/app.
-Flash-lite is weak for boundary judgement; a stronger model would help more than further prompt tweaks.
-No second verification agent (budget constraint)—without that limit, a verifier over scored fields would raise accuracy further.
-Unshipped: trial/free detect, MCP gated-from-page-text, tighter auth_detail conflict → expected ~61% toward 65–70%.
-Accuracy is not one number: api_type {api_pct}% vs access_tier {tier_pct}% (many boundary disagreements).</p>
-</div>
-
-<footer>
-<p><a href="{esc(repo_url)}">{esc(repo_url)}</a> ·
-<a href="{esc(research_repo)}">{esc(research_repo)}</a> ·
-generated {esc(date.today().isoformat())} ·
-reproduce: <code>prepare_final.py → build_stats.py → build_page.py</code> on <code>master</code></p>
-</footer>
+<ul>
+<li><strong>Permission, not engineering difficulty.</strong>
+{queues['engineering_ready_nobody']} of {n} are ready for an engineer today (<code>nobody</code> must act).
+{queues['non_engineering_queues']} of {n} wait on vendor review, finance, or BD.
+Top real blocker: <strong>{esc(h['most_common_blocker'])}</strong> ({h['most_common_blocker_count']} of {n}).</li>
+<li><strong>Auth type does not predict shipability.</strong>
+{e['api_key_not_easy_win']} of {e['api_key_total']} <code>api_key</code> apps are still not easy wins;
+<code>oauth2</code> lands across {e['oauth2_distinct_buildability_count']} different verdicts.
+Triage by who must say yes — not by how “hard” the auth looks.</li>
+<li><strong>Category skew (10 apps each).</strong>
+Most open access rollup: {esc(bcat['most_open_category'])} ({bcat['most_open_detail']}).
+Most gated: {esc(bcat['most_gated_category'])} ({bcat['most_gated_detail']}).
+Data/SEO is almost all easy wins; Ecommerce / Dev-infra skew toward vendor review.</li>
+<li><strong>Business-type prior matters for search, not as the final verdict.</strong>
+Call 1 clusters each app (infra usage-based, SaaS seat-based, ads, data vendor, commerce, enterprise sales, AI-native)
+because companies that monetise open APIs usually put docs where strangers can find them —
+enterprise / partner products usually do not. That prior steers queries; a rules engine still decides buildability.</li>
+<li><strong>MCP ≠ credentials.</strong>
+{g['mcp_present_not_easy_win']} of {g['mcp_present']} apps that advertise an MCP server are still not easy wins.</li>
+<li><strong>Coverage holes become unknowns, not confident wrong answers when honest.</strong>
+{cov['access_tier_unknown']} of {n} came back <code>access_tier=unknown</code>
+(thin, missing, or paywalled docs — e.g. fanbasis, PitchBook).</li>
+</ul>
 
 </main>
+
+<div class="full-wrap">
+<main class="full">
+<h2>Appendix — all {n} apps</h2>
+<p class="meta">Skim the sections above first. Full matrix sorted easy → hard.</p>
+{''.join(full_bits)}
+<footer>
+<p>Research code (public): <a href="{esc(research_repo)}">{esc(research_repo)}</a> ·
+Findings generator on same repo · generated {esc(date.today().isoformat())}</p>
+</footer>
+</main>
+</div>
+
 <script type="application/json" id="data">{data_json}</script>
-<script type="application/json" id="stats">{stats_embed}</script>
+<script type="application/json" id="stats">{stats_json}</script>
 </body>
 </html>
 """
@@ -396,26 +467,43 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--stats", default="data/stats.json")
     parser.add_argument("--final", default="data/final.json")
     parser.add_argument("--out", default="index.html")
-    parser.add_argument("--repo-url", default="https://github.com/Aacashi/composio-toolkit-findings")
     parser.add_argument(
         "--research-repo",
         default="https://github.com/Aacashi/composio-toolkit-research",
     )
+    parser.add_argument(
+        "--findings-repo",
+        default="https://github.com/Aacashi/composio-toolkit-findings",
+    )
     args = parser.parse_args(argv)
 
-    def resolve(p: str) -> Path:
+    def R(p: str) -> Path:
         path = Path(p)
         return path if path.is_absolute() else ROOT / path
 
-    out = build_html(
-        load(resolve(args.stats)),
-        load(resolve(args.final)),
-        repo_url=args.repo_url,
+    import sys
+
+    sys.path.insert(0, str(ROOT))
+    from scripts.build_stats import build_stats  # noqa: E402
+
+    final = load(R(args.final))
+    gt_paths = [
+        ROOT / "ground_truth.json",
+        ROOT / "data" / "ground_truth_batch2.json",
+        ROOT / "data" / "ground_truth_batch3.json",
+    ]
+    stats = build_stats(final, gt_paths)
+    R(args.stats).write_text(json.dumps(stats, indent=2, ensure_ascii=False), encoding="utf-8")
+
+    html_out = build_html(
+        stats,
+        final,
         research_repo=args.research_repo,
+        findings_repo=args.findings_repo,
     )
-    out_path = resolve(args.out)
-    out_path.write_text(out, encoding="utf-8")
-    print(f"[page] wrote {out_path} ({len(out)} bytes)")
+    out = R(args.out)
+    out.write_text(html_out, encoding="utf-8")
+    print(f"[page] wrote {out} ({len(html_out)} bytes) — local only")
     return 0
 
 
