@@ -1,106 +1,93 @@
-# Composio Toolkit Research Agent
+# Composio toolkit research
 
-Research pipeline that classifies apps for Composio toolkit **buildability** (credential access gates), plus a static findings page.
+Stage-1 research agent that classifies apps for toolkit **buildability** (credential access gates), then a rules engine derives verdicts. Findings HTML lives in a [separate repo](https://github.com/Aacashi/composio-toolkit-findings).
 
-**AMENDMENT_3 + Call 1 agent fix:** Tavily-only web access (via Composio SDK, with direct Tavily fallback). **Call 1 is a Gemini agent with `tavily_search` bound (max 6 tool calls)** — business-type prior drives queries; scored fields (access_tier, auth) take budget priority. Call 2 is a no-tools extractor. Stage 2 derives verdicts later. Gemini Flash-Lite for all LLM calls.
+## Run on another laptop
 
-## Setup
+**Needs:** Python 3.11+ (3.12/3.13 fine), and API keys below.
 
 ```bash
+git clone https://github.com/Aacashi/composio-toolkit-research.git
+cd composio-toolkit-research
+
 python -m venv .venv
-# Windows: .venv\Scripts\activate
+# Windows PowerShell:
+.\.venv\Scripts\Activate.ps1
+# macOS / Linux:
+# source .venv/bin/activate
+
 pip install -r requirements.txt
 cp .env.example .env
+# edit .env with your keys
 ```
 
-### API keys you must provide
+### Keys (`.env`)
 
-| Variable | Where to get it | Used for |
+| Variable | Required | Purpose |
 |---|---|---|
-| `GEMINI_API_KEY` | [Google AI Studio](https://aistudio.google.com/apikey) | Discover / extract / chunk-filter |
-| `COMPOSIO_API_KEY` | [Composio dashboard](https://app.composio.dev) | Tavily toolkit execute + catalog cross-check |
-| `COMPOSIO_USER_ID` | Composio entity / user id with Tavily connected | `tools.execute(..., user_id=...)` |
-| `COMPOSIO_AUTH_CONFIG_ID` | Auth config for the Tavily connection (e.g. `ac_...`) | Stored for connection setup / debugging |
-| `COMPOSIO_CONNECTED_ACCOUNT_ID` | Optional explicit connected-account id | Passed to `tools.execute` when set |
-| `COMPOSIO_TAVILY_VERSION` | Composio dashboard toolkit version (e.g. `v20260717_00`) | Passed as `version=` to `tools.execute` (not `"latest"`) |
-| `TAVILY_API_KEY` | [Tavily](https://tavily.com) free tier | Connect Tavily inside Composio; also direct fallback |
-| `COMPOSIO_SHEETS_ID` | Optional | `--export-sheets` only |
+| `GEMINI_API_KEY` | yes | Discover + extract (Gemini Flash-Lite) |
+| `TAVILY_API_KEY` | yes | Search / page extract; also used to connect Tavily in Composio |
+| `COMPOSIO_API_KEY` | yes | Composio SDK (Tavily toolkit + catalog cross-check) |
+| `COMPOSIO_USER_ID` | yes | Composio user/entity that has Tavily connected |
+| `COMPOSIO_AUTH_CONFIG_ID` | yes | Auth config id for that Tavily connection (`ac_…`) |
+| `COMPOSIO_TAVILY_VERSION` | yes | Toolkit version from Composio dashboard (see `.env.example`) |
+| `COMPOSIO_CONNECTED_ACCOUNT_ID` | optional | Passed to `tools.execute` when set |
 
-**Connect Tavily in Composio**
+1. Create a [Gemini](https://aistudio.google.com/apikey) key and a [Tavily](https://tavily.com) key (free tier is enough for smoke tests).
+2. In Composio → Toolkits → Tavily, authenticate with your Tavily key for `COMPOSIO_USER_ID`.
+3. Copy the auth-config / version ids into `.env`.
 
-1. Create a free Tavily API key (1,000 credits/month, no card).
-2. In Composio dashboard → Toolkits → Tavily → authenticate with that API key for your `COMPOSIO_USER_ID`.
-3. Set all env vars in `.env`.
-4. Verify: `python -m pipeline.run --app Stripe --verbose`
+If Composio’s Tavily execute fails, the client warns and falls back to direct `api.tavily.com` (still needs `TAVILY_API_KEY`).
 
-If Composio’s Tavily toolkit execute fails, the client prints a loud WARN, records `provider=direct` plus the error in `debug/{app}.json`, and falls back to `https://api.tavily.com`. It must not report `provider=composio` when Composio did not execute.
-
-Firecrawl is **removed**. Do not set `FIRECRAWL_API_KEY`.
-
-## Three stages
-
-### Stage 1 — facts only
+### Smoke test (one app, nothing written to a run file)
 
 ```bash
-python -m pipeline.run --app Stripe --verbose   # one app, no run file write
+python -m pipeline.run --app Stripe --verbose
+```
+
+You should see discover → fetch → extract stages and a JSON result in the terminal. Traces land under `debug/`; HTTP/LLM responses are cached under `cache/`.
+
+### Batch run (writes `data/run_vN.json`)
+
+```bash
+# 10-app list
 python -m pipeline.run --apps apps_10.json --resume
-# → data/run_v1.json (skips apps already in that file)
 
+# full 100 (resumes; skips apps already in the latest run file)
 python -m pipeline.run --apps apps_100.json --resume --batch-size 25
-# resumes the same latest run_vN.json — already-filled apps (e.g. the 10 + Stripe) are not re-run
 ```
 
-Writes `data/run_vN.json` with Gemini facts + audit + composio cross-check.  
-**No** `buildability` / `access_tier_rollup` yet.
+App lists live in `data/` (`apps_10.json`, `apps_100.json`, …). Use `--limit N` to cap how many apps process in one invocation.
 
-Tavily credits: warn at 700, abort projected at 850. Every search/extract and Gemini call is disk-cached under `cache/`. Per-app traces land in `debug/{app}.json`.
+### Offline: guards, verdicts, stats (no network)
 
-### Stage 2 — derivation (no network)
+After a Stage-1 run:
 
 ```bash
-python scripts/derive.py --run run_v1.json
-# → data/run_v1_derived.json
+# optional cheap post-loop guards on a run file
+python scripts/apply_post_loop_guards.py --in data/run_vN.json --out data/run_vN_postguard.json
 
-python scripts/derive.py --gt   # ground_truth.json atoms → verdicts
+# prepare final rows + derive buildability / unblocker
+python scripts/prepare_final.py --in data/run_vN_postguard.json
+
+# rules-engine counts for the findings page
+python scripts/build_stats.py
+python scripts/build_page.py --out index.html   # local only; publish via findings repo
 ```
 
-### Stage 3 — clustering
-
-**Not implemented.** Pure pandas crosstabs when you supply rules.
-
-## Ground truth
-
-1. Edit `data/ground_truth.json` — atoms only (see DEFINITIONS.md).
-2. `python scripts/derive.py --gt`
-3. Score a **derived** run: `python -m eval.score --run run_v1_derived.json`
-
-## Other commands
+Score against hand labels (atoms in `ground_truth.json` + `data/ground_truth_batch*.json`):
 
 ```bash
-python -m export.to_csv --run run_v1_derived.json
-python -m crosscheck.composio_check --run run_v1.json
-python scripts/test_verdict.py
+python -m eval.score --run data/final.json
 ```
 
-## Site
+### Windows note
 
-```bash
-cd site && npm install && npm run build
-```
+Prefer `.\.venv\Scripts\python.exe -m pipeline.run ...` if activation is awkward in PowerShell.
 
-Placeholders only. Copy a derived run into `site/public/data.json` when ready.
+## What this repo is / isn’t
 
-## Outputs
+- **Is:** research code, prompts, schema, ground truth, run artifacts you choose to commit.
+- **Isn’t:** the deployed case-study page — see [composio-toolkit-findings](https://github.com/Aacashi/composio-toolkit-findings).
 
-| path | purpose |
-|---|---|
-| `data/run_vN.json` | Stage 1 facts |
-| `data/run_vN_derived.json` | Stage 2 + verdicts |
-| `debug/*.json` | Per-app traces |
-| `cache/` | Tavily + Gemini caches |
-
-## Known limitations
-
-- Flash-Lite for all LLM calls; accuracy depends on first-party coverage + guard.
-- Clustering / findings content not built yet.
-- Composio catalog is a free auth cross-check only — not an answer key for access_tier.
+Enums and public-path assumptions: `DEFINITIONS.md`. Pipeline decisions: `LOGIC_FREEZE.md` / `AMENDMENT_3.md`.
