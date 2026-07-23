@@ -176,9 +176,10 @@ def node_fetch(
         item = by_url.get(url) or {"url": url, "markdown": "", "error": "missing"}
         md = item.get("markdown") or ""
         err = item.get("error")
-        dbg.add_extract(url, md, err)
-        print(f"[fetch] {app_name} url={url} err={err}")
-        if err or not md:
+        kept = bool(md) and not err
+        dbg.add_extract(url, md, err, kept=kept)
+        print(f"[fetch] {app_name} url={url} err={err} kept={kept}")
+        if not kept:
             continue
         raw_len = len(md)
         text = md

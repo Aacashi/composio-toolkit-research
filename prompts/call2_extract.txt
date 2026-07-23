@@ -12,6 +12,12 @@ Emit:
   open = no account and no credentials required at all (truly public).
   self_serve_free = free signup required, no card, credentials in minutes.
   "No setup fees" / "pay-as-you-go" on a pricing page is NOT open if signup is required — that is self_serve_free (or a higher gated tier).
+  Stranger-with-card test (for gated bands):
+    Can a stranger with a credit card obtain working credentials today?
+      yes, then a vendor human reviews the app -> approval_gated
+      no, must contact the vendor or join a programme -> partner_gated
+      no, credentials are issued only from inside an existing tenancy
+        or customer account -> no_public_access
 - access_cost_note: free text
 - api_type: rest | graphql | both | cli_only | none | unknown
   cli_only = NO API at all, only a local CLI (e.g. Mermaid CLI, Sherlock).
@@ -39,6 +45,14 @@ ABSENCE RULE (hard): For mcp_exists, api_type, auth_primary, has_webhooks, has_o
 you may only return the absence value (none for mcp_exists / api_type / auth_primary; no for
 has_webhooks / has_openapi_spec) if a fetched === SOURCE === page positively indicates absence.
 If no fetched page addresses that field at all, the answer is unknown. Never infer absence from silence.
+
+PUBLIC / DISTRIBUTED PATH (hard): Assume Composio ships a PUBLIC, DISTRIBUTED integration used by many
+customers, not a single-tenant internal or custom app. Where a vendor offers both an internal/custom
+app that is self-serve and a public app that requires vendor review, classify the PUBLIC path. If the
+public path requires vendor review, security review, app-store listing, or partner approval,
+access_tier is approval_gated even though an internal token is available in minutes.
+Known pattern: Notion public integrations require a security review; Shopify public apps require
+App Store review plus separate protected-customer-data approval.
 
 STATED ASSUMPTION: Composio ships PUBLIC / DISTRIBUTED toolkits. If production multi-customer use needs vendor app review, access_tier=approval_gated even if a private/custom app key would be easy for one engineer.
 

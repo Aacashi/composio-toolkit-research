@@ -8,7 +8,7 @@ from typing import Any, Optional
 from pydantic import BaseModel, Field
 
 # Bump whenever prompts/ or this schema's Gemini surface changes.
-PROMPTS_VERSION = "v6"
+PROMPTS_VERSION = "v7"
 
 
 class BusinessType(str, Enum):
