@@ -18,9 +18,13 @@ CACHE_DIR = Path(__file__).resolve().parent.parent / "cache"
 CACHE_DIR.mkdir(exist_ok=True)
 
 TAVILY_API = "https://api.tavily.com"
-WARN_CREDITS = 700
-ABORT_CREDITS = 850
+WARN_CREDITS = 1200
+ABORT_CREDITS = 2000
 EXTRACT_BATCH_SIZE = 5
+
+
+class TavilyRateLimitExhausted(RuntimeError):
+    """Raised when Tavily/Composio returns persistent 429 / rate limit."""
 
 
 class CreditTracker:
@@ -173,6 +177,10 @@ class TavilyClient:
             except Exception as e:
                 last_err = e
                 msg = str(e).lower()
+                if "429" in msg or "rate limit" in msg or "too many requests" in msg:
+                    raise TavilyRateLimitExhausted(
+                        f"Tavily/Composio rate limit on {slug}: {e}"
+                    ) from e
                 # Retry alternate version form for version-shaped failures OR
                 # "tool not found" (Composio returns 404 Tool_ToolNotFound for bad version tags).
                 if ver is not None and (
@@ -258,6 +266,10 @@ class TavilyClient:
                 "max_results": limit,
             },
         )
+        if resp.status_code == 429:
+            raise TavilyRateLimitExhausted(
+                f"Tavily direct search HTTP 429 for query={query!r}"
+            )
         if resp.status_code != 200:
             self._log(f"[tavily] direct search http {resp.status_code}")
             return []
@@ -335,6 +347,10 @@ class TavilyClient:
             f"{TAVILY_API}/extract",
             json={"api_key": self.tavily_api_key, "urls": urls},
         )
+        if resp.status_code == 429:
+            raise TavilyRateLimitExhausted(
+                f"Tavily direct extract HTTP 429 for urls={urls}"
+            )
         if resp.status_code != 200:
             return [
                 {"url": u, "markdown": "", "error": f"http {resp.status_code}"}

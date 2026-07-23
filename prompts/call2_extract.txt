@@ -1,4 +1,7 @@
-SECTION A — atomic facts only (do NOT emit buildability, unblocker, blocker_type, blocker, access_tier_rollup)
+Composio builds toolkits that many different customers install.
+Many vendors offer two integration paths: a private or internal app scoped to one account, usually instant and self-serve; and a public or distributed app that any customer can install, usually requiring vendor review before production. Composio ships the public path, so report BOTH paths where both exist and do not collapse them into a single answer.
+
+SECTION A — atomic facts only (do NOT emit buildability, unblocker, blocker_type, blocker, access_tier_rollup, or access_tier)
 
 Emit:
 - one_liner (max 15 words)
@@ -7,17 +10,6 @@ Emit:
 - docs_access: public | login_required | on_request | none_found
 - auth_primary: api_key | pat | oauth2 | oauth1 | basic | jwt_keypair | hmac_signed | aws_sigv4 | session_only | none | unknown
 - auth_detail: one line free text (header names, query vs header, key+secret, secondary schemes). Fold any secondary auth into this text.
-- access_tier: open | self_serve_free | self_serve_trial | card_required | plan_gated | approval_gated | partner_gated | no_public_access
-  (self_hosted is NOT allowed)
-  open = no account and no credentials required at all (truly public).
-  self_serve_free = free signup required, no card, credentials in minutes.
-  "No setup fees" / "pay-as-you-go" on a pricing page is NOT open if signup is required — that is self_serve_free (or a higher gated tier).
-  Stranger-with-card test (for gated bands):
-    Can a stranger with a credit card obtain working credentials today?
-      yes, then a vendor human reviews the app -> approval_gated
-      no, must contact the vendor or join a programme -> partner_gated
-      no, credentials are issued only from inside an existing tenancy
-        or customer account -> no_public_access
 - access_cost_note: free text
 - api_type: rest | graphql | both | cli_only | none | unknown
   cli_only = NO API at all, only a local CLI (e.g. Mermaid CLI, Sherlock).
@@ -33,9 +25,37 @@ Emit:
   none = checked, no MCP exists
   unknown = could not determine
 - is_open_source: yes | no | unknown
+- integration_paths: one_path | two_paths | unknown
+  private path = an internal / custom / private integration scoped to a single account or
+    workspace, created by the account owner, typically instant and self-serve
+  public path = a distributed / public / marketplace app that any customer can install,
+    typically requiring vendor review, security review, app-store listing, or partner
+    approval before production use
+  two_paths = both exist in the fetched docs; one_path = only one integration model;
+  unknown = could not determine
+- private_path_access: open | self_serve_free | self_serve_trial | card_required | plan_gated |
+    approval_gated | partner_gated | no_public_access | n_a | unknown
+  Tier for the private/internal path. Use n_a only when that path does not exist.
+  Prefer pricing / plans / billing SOURCE pages when assigning this tier. Auth pages explain
+  HOW credentials work; pricing pages explain WHO can get them and at what gate.
+  open = no account and no credentials required at all.
+  self_serve_free = free signup required, no card, credentials in minutes.
+  Stranger-with-card test for gated bands:
+    Can a stranger with a credit card obtain working credentials today?
+      yes, then a vendor human reviews the app -> approval_gated
+      no, must contact the vendor or join a programme -> partner_gated
+      no, credentials only from inside an existing tenancy/customer account -> no_public_access
+- public_path_access: same enum as private_path_access (including n_a | unknown)
+  Tier for the public/distributed path. Use n_a when there is no separate public path
+  (integration_paths=one_path). When two_paths, this is the path Composio cares about.
+  Prefer pricing / plans / billing SOURCE pages; developer overview pages are secondary.
+- path_evidence: one line quoting or closely paraphrasing what the docs say about the
+  public path requirement. Empty string if integration_paths is one_path or unknown.
 - evidence: {field_name: SOURCE url from input}
 - confidence: {field_name: high|med|low}
 - notes: free text
+
+Do NOT emit access_tier. It is derived later in code from the path fields.
 
 CRITICAL: none and unknown are NEVER interchangeable.
   none = we checked and it genuinely does not exist
@@ -46,26 +66,21 @@ you may only return the absence value (none for mcp_exists / api_type / auth_pri
 has_webhooks / has_openapi_spec) if a fetched === SOURCE === page positively indicates absence.
 If no fetched page addresses that field at all, the answer is unknown. Never infer absence from silence.
 
-PUBLIC / DISTRIBUTED PATH (hard): Assume Composio ships a PUBLIC, DISTRIBUTED integration used by many
-customers, not a single-tenant internal or custom app. Where a vendor offers both an internal/custom
-app that is self-serve and a public app that requires vendor review, classify the PUBLIC path. If the
-public path requires vendor review, security review, app-store listing, or partner approval,
-access_tier is approval_gated even though an internal token is available in minutes.
-Known pattern: Notion public integrations require a security review; Shopify public apps require
-App Store review plus separate protected-customer-data approval.
-
-STATED ASSUMPTION: Composio ships PUBLIC / DISTRIBUTED toolkits. If production multi-customer use needs vendor app review, access_tier=approval_gated even if a private/custom app key would be easy for one engineer.
-
 CLOUD PATH ONLY: classify the cloud/hosted path. Mention self-host only in notes.
 
-SECTION B — evidence rule
+SECTION B — evidence rule (hard)
 Every non-unknown field must cite a SOURCE URL from === SOURCE: url === blocks. If pages do not state it, answer unknown. No training knowledge. No inference.
+For integration_paths, private_path_access, and public_path_access:
+  If the value is not n_a and not unknown, evidence[field] is REQUIRED.
+  If you cannot cite a fetched SOURCE page, you MUST emit unknown (never an uncited concrete tier).
+Prefer pricing/plans/billing SOURCE pages for private_path_access / public_path_access when present.
 
 SECTION C — tag stability
 - Extra procedural steps do not change a tag.
 - Header vs query-param, key+secret, multi-step flows, and any secondary auth schemes belong in auth_detail.
 - When docs lead with one auth and also offer another, put the docs-lead in auth_primary and mention the other in auth_detail.
+- If credentials are sent as HTTP Basic (e.g. email/token:api_token), auth_primary is basic, not api_key.
 - other is never valid. Use unknown + notes.
 
 SECTION D — output format
-Strict JSON matching the fields above. No markdown fences. No verdict fields.
+Strict JSON matching the fields above. No markdown fences. No verdict fields. No access_tier field.

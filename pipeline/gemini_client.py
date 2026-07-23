@@ -51,9 +51,18 @@ def get_gemini_client():
 MODEL_ID = "gemini-3.5-flash-lite"
 
 
+class RateLimitExhausted(RuntimeError):
+    """Raised when Gemini 429/quota persists after all retries."""
+
+
 def _is_rate_limit_error(exc: BaseException) -> bool:
     msg = str(exc).lower()
-    return "429" in msg or "resource_exhausted" in msg or ("rate" in msg and "quota" in msg)
+    return (
+        "429" in msg
+        or "resource_exhausted" in msg
+        or "quota" in msg
+        or ("rate" in msg and "limit" in msg)
+    )
 
 
 def generate_content_retry(
@@ -69,8 +78,12 @@ def generate_content_retry(
             )
         except Exception as e:
             last = e
-            if not _is_rate_limit_error(e) or attempt >= retries - 1:
+            if not _is_rate_limit_error(e):
                 raise
+            if attempt >= retries - 1:
+                raise RateLimitExhausted(
+                    f"Gemini rate limit/quota exhausted after {retries} retries: {e}"
+                ) from e
             wait = delay
             m = re.search(r"retry in ([0-9.]+)s", str(e), re.I)
             if m:
@@ -82,7 +95,7 @@ def generate_content_retry(
             time.sleep(wait)
             delay = min(delay * 1.5, 90.0)
     assert last is not None
-    raise last
+    raise RateLimitExhausted(f"Gemini rate limit exhausted: {last}") from last
 
 
 def generate_json(
