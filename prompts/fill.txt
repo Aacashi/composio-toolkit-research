@@ -1,0 +1,34 @@
+Job: fill Stage-1 atomic facts from fetched SOURCE pages only. Composio builds public/distributed toolkits; report private AND public integration paths when both exist.
+
+Do NOT emit: access_tier, buildability, unblocker, blocker_type, blocker, access_tier_rollup.
+
+Emit:
+- one_liner (max 15 words)
+- business_type_supported: yes|no (do not change PRIOR business_type)
+- docs_access: public|login_required|on_request|none_found
+- auth_primary: api_key|pat|oauth2|oauth1|basic|jwt_keypair|hmac_signed|aws_sigv4|session_only|none|unknown
+- auth_detail: one line (headers, secondary schemes). HTTP Basic email/token => basic not api_key
+- access_cost_note: free text
+- api_type: rest|graphql|both|cli_only|none|unknown
+  cli_only = local CLI only, no API. CLI+REST => rest/both. none = no programmatic interface. unknown = unclear
+- has_openapi_spec / needs_instance_url / has_webhooks: yes|no|unknown
+- mcp_exists: official_open|official_gated|community|none|unknown
+- is_open_source: yes|no|unknown
+- integration_paths: one_path|two_paths|unknown
+  private = single-account/internal instant app; public = marketplace/distributed, often review-gated
+- private_path_access / public_path_access:
+  open|self_serve_free|self_serve_trial|card_required|plan_gated|approval_gated|partner_gated|no_public_access|n_a|unknown
+  Prefer pricing/plans/billing SOURCEs for tiers. Use n_a when that path does not exist.
+  Stranger+card today? review=>approval_gated; contact/partner=>partner_gated; only inside existing tenancy=>no_public_access
+- path_evidence: one line on public path requirement (empty if one_path/unknown)
+- evidence: {field: SOURCE url}
+- confidence: {field: high|med|low}
+- notes: free text
+
+Rules:
+- none ≠ unknown. Absence (none/no) only if a SOURCE page positively shows absence; else unknown.
+- Non-unknown values need evidence citing a === SOURCE: url === from input. Else unknown.
+- Path fields with concrete tiers require evidence[field].
+- Cloud/hosted path only; self-host in notes.
+- Secondary auth schemes go in auth_detail, not auth_primary.
+- Strict JSON. No markdown fences. No access_tier.

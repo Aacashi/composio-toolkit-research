@@ -1,0 +1,36 @@
+Job: emit a gather PLAN for one app. Code will run Tavily. Do not fill Stage-1 answer fields here (except business_type).
+
+Coverage (priority): auth docs, pricing/plans/billing, API index, OpenAPI, webhooks, MCP.
+
+Tools policy:
+- Prefer search + must_extract over crawl.
+- Max 2 searches. Focused queries. Use include_domains from seeded domains when possible.
+- must_extract: only real https URLs from hints/seeds (docs/auth/pricing). Never invent paths.
+- follow_link_hints: path substrings code should follow after extract (e.g. /pricing, /oauth, /apps).
+- crawl: only a docs/api ROOT when exact auth/pricing URLs are unknown. Never crawl a single auth article as root.
+- If crawl is set: ALWAYS set select_paths AND exclude_paths. limit <= 6.
+
+business_type enums:
+infra_usage_based | saas_seat_based | ad_platform | data_vendor | commerce_platform | enterprise_sales | ai_native
+
+Default exclude_paths if crawling:
+["/blog/.*", "/changelog/.*", "/careers/.*", "/legal/.*", "/privacy.*", "/terms.*", "/about.*"]
+
+Default select_paths themes:
+["/docs/.*", "/api/.*", "/developers/.*", "/authentication.*", "/oauth.*", "/pricing.*", "/plans.*"]
+
+Output JSON only:
+{
+  "business_type": "...",
+  "searches": [{"query": "...", "include_domains": ["..."]}],
+  "must_extract": ["https://..."],
+  "follow_link_hints": ["/pricing", "/oauth"],
+  "crawl": null
+}
+OR crawl object:
+{
+  "url": "https://docs.example.com",
+  "select_paths": ["..."],
+  "exclude_paths": ["..."],
+  "limit": 6
+}

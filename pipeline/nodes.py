@@ -603,10 +603,11 @@ def build_row(
 
     cli = row.get("api_type") == "cli_only"
     before = {f: row.get(f) for f in GEMINI_FACT_FIELDS}
-    # Guard path fields first; then derive access_tier from surviving path values.
-    row = apply_guard(row, cli_shortcircuit=cli, dbg=dbg, pages=pages or [])
+    # v10: guards commented out (keep apply_guard import + this block for re-enable).
+    # row = apply_guard(row, cli_shortcircuit=cli, dbg=dbg, pages=pages or [])
+    _ = (cli, pages, apply_guard)  # silence unused while guards are off
     row = derive_access_tier_from_paths(row)
     for f in GEMINI_FACT_FIELDS:
         if before.get(f) != row.get(f):
-            dbg.add_guard_change(f, before.get(f), row.get(f), "guard")
+            dbg.add_guard_change(f, before.get(f), row.get(f), "derive")
     return row

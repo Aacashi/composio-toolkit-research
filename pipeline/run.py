@@ -23,7 +23,7 @@ from pipeline.graph import process_one_app  # noqa: E402
 from pipeline.tavily_client import CreditTracker, TavilyClient  # noqa: E402
 
 DATA = ROOT / "data"
-SLEEP_BETWEEN_APPS = 8.0
+SLEEP_BETWEEN_APPS = 10.0
 BATCH_SIZE = 25
 
 
