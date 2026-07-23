@@ -314,6 +314,14 @@ a { color: #111; }
 hr { border: 0; border-top: 1px solid #111; margin: 0.5rem 0 1rem; }
 """
 
+    deep_pct = deep["overall"]["correct_pct_of_base"]
+    deep_base = deep["overall"]["base"]
+    deep_correct = deep["overall"]["correct"]
+    tier_pct = deep["fields"]["access_tier"]["correct_pct_of_base"]
+    api_pct = deep["fields"]["api_type"]["correct_pct_of_base"]
+    auth_pct = deep["fields"]["auth_primary"]["correct_pct_of_base"]
+    mcp_pct = deep["fields"]["mcp_exists"]["correct_pct_of_base"]
+
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -326,7 +334,10 @@ hr { border: 0; border-top: 1px solid #111; margin: 0.5rem 0 1rem; }
 <main>
 <h1>Of {n} apps, {h['easy_win']} can be built today with self-serve credentials,
 {h['needs_review']} need a vendor to approve, {h['needs_outreach']} need a sales conversation,
-and {h['blocked']} have no usable API.{residual}</h1>
+and {h['blocked']} have no usable API.{residual}
+On a hand-labelled sample of {deep['sample_apps']} apps ({deep_base} field labels),
+overall accuracy is {deep_pct}% ({deep_correct} of {deep_base}):
+access_tier {tier_pct}%, auth_primary {auth_pct}%, api_type {api_pct}%, mcp_exists {mcp_pct}%.</h1>
 <p class="assumption">Classified for the public/distributed integration path, since Composio ships
 toolkits that many customers install.</p>
 
