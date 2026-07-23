@@ -1,6 +1,6 @@
 """Generate single static findings index.html from stats.json + final.json.
 
-Rules-engine output only — no hardcoded counts. Commit the HTML; no build step at deploy.
+Rules-engine output only — no hardcoded counts. Concise research memo layout.
 """
 
 from __future__ import annotations
@@ -8,9 +8,9 @@ from __future__ import annotations
 import argparse
 import html
 import json
-import sys
 from datetime import date
 from pathlib import Path
+from urllib.parse import urlparse
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -41,20 +41,40 @@ def load(path: Path):
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def table(headers: list[str], rows: list[list[str]], caption: str = "") -> str:
+def short_url(url: str) -> str:
+    if not url:
+        return "—"
+    p = urlparse(url)
+    host = (p.netloc or "").removeprefix("www.")
+    path = p.path or ""
+    if len(path) > 28:
+        path = path[:25] + "…"
+    label = f"{host}{path}" if host else url[:40]
+    return f'<a href="{esc(url)}">{esc(label)}</a>'
+
+
+def table(headers: list[str], rows: list[list[str]]) -> str:
     th = "".join(f"<th>{esc(h)}</th>" for h in headers)
-    body = []
-    for row in rows:
-        tds = "".join(f"<td>{c}</td>" for c in row)
-        body.append(f"<tr>{tds}</tr>")
-    cap = f"<caption>{esc(caption)}</caption>" if caption else ""
-    return f"<table>{cap}<thead><tr>{th}</tr></thead><tbody>{''.join(body)}</tbody></table>"
+    body = "".join("<tr>" + "".join(f"<td>{c}</td>" for c in row) + "</tr>" for row in rows)
+    return f"<table><thead><tr>{th}</tr></thead><tbody>{body}</tbody></table>"
 
 
 def verdict_cell(v: str) -> str:
-    color = SWATCH.get(v, "#000")
+    return f'<span class="swatch" style="background:{SWATCH.get(v, "#000")}"></span>{esc(v)}'
+
+
+def cat_short(name: str) -> str:
+    # Shorten long category labels for the full table
     return (
-        f'<span class="swatch" style="background:{color}"></span> {esc(v)}'
+        name.replace("Marketing, Ads, Email and Social", "Marketing / Ads")
+        .replace("Communications and Messaging", "Comms")
+        .replace("Developer, Infra and Data platforms", "Dev / Infra")
+        .replace("Productivity and Project Management", "Productivity")
+        .replace("AI, Research and Media-native", "AI / Media")
+        .replace("Data, SEO and Scraping", "Data / SEO")
+        .replace("Support and Helpdesk", "Support")
+        .replace("Finance and Fintech", "Finance")
+        .replace("CRM and Sales", "CRM")
     )
 
 
@@ -69,106 +89,103 @@ def build_html(stats: dict, rows: list[dict], *, repo_url: str, research_repo: s
     bcat = stats["B_category_rollup"]
     queues = stats["F_queues"]
 
-    # Headline residual
-    residual = (
-        f" Two more need a paid plan first ({h['easy_but_paid']} of {n}); "
-        f"{h['buildability_unknown']} of {n} could not be classified."
-    )
+    deep_pct = deep["overall"]["correct_pct_of_base"]
+    deep_base = deep["overall"]["base"]
+    deep_correct = deep["overall"]["correct"]
+    tier_pct = deep["fields"]["access_tier"]["correct_pct_of_base"]
+    api_pct = deep["fields"]["api_type"]["correct_pct_of_base"]
+    auth_pct = deep["fields"]["auth_primary"]["correct_pct_of_base"]
+    mcp_pct = deep["fields"]["mcp_exists"]["correct_pct_of_base"]
 
-    # A
+    # Compact auth counts: "oauth2 50 · api_key 31 · …"
+    auth_line = " · ".join(f"{r['value']} {r['count']}" for r in stats["A_auth_dominates"])
+
+    # A — count + % only (drop redundant third wording)
     a_rows = [
-        [esc(r["value"]), str(r["count"]), f"{r['pct_of_100']}% ({r['count']} of {n})"]
+        [esc(r["value"]), str(r["count"]), f"{r['pct_of_100']}%"]
         for r in stats["A_auth_dominates"]
     ]
 
-    # B
-    b_rows = []
-    for r in bcat["rows"]:
-        b_rows.append(
-            [
-                esc(r["category"]),
-                str(r["open"]),
-                str(r["paid"]),
-                str(r["gated"]),
-                str(r["unknown"]),
-                str(r["total"]),
-            ]
-        )
+    b_rows = [
+        [
+            esc(r["category"]),
+            str(r["open"]),
+            str(r["paid"]),
+            str(r["gated"]),
+            str(r["unknown"]),
+            str(r["total"]),
+        ]
+        for r in bcat["rows"]
+    ]
 
-    # C
+    # C — skip blocker_type=none (already in easy_win count)
     c_rows = [
         [esc(r["blocker_type"]), str(r["count"]), esc(r["who_acts"])]
         for r in stats["C_blockers"]
+        if r["blocker_type"] != "none"
     ]
 
-    # D
     d_rows = [
         [esc(r["verdict"]), str(r["count"]), esc(r["meaning"])]
         for r in stats["D_buildability"]
     ]
 
-    # E matrix
-    cols = e["columns"]
-    e_headers = ["auth_primary"] + cols + ["total"]
+    # E — drop all-zero columns for readability (keep if any non-zero)
+    cols = [c for c in e["columns"] if any(r.get(c, 0) for r in e["rows"])]
+    e_headers = ["auth"] + [c.replace("needs_", "").replace("easy_but_", "paid_") for c in cols] + ["n"]
     e_rows = []
     for r in e["rows"]:
+        if r["total"] == 0:
+            continue
         e_rows.append([esc(r["row"])] + [str(r.get(c, 0)) for c in cols] + [str(r["total"])])
 
-    # F
     f_rows = [
-        [
-            esc(r["who_must_act"]),
-            str(r["count"]),
-            esc(r["typical_wait"]),
-            esc(r["work_kind"]),
-        ]
+        [esc(r["who_must_act"]), str(r["count"]), esc(r["typical_wait"]), esc(r["work_kind"])]
         for r in queues["rows"]
     ]
 
-    # G
     g_rows = [
+        ["OpenAPI", f"yes {g['has_openapi_spec']['yes']} · no {g['has_openapi_spec']['no']} · unk {g['has_openapi_spec']['unknown']}"],
+        ["Instance URL", f"yes {g['needs_instance_url']['yes']} · no {g['needs_instance_url']['no']} · unk {g['needs_instance_url']['unknown']}"],
+        ["Webhooks", f"yes {g['has_webhooks']['yes']} · no {g['has_webhooks']['no']} · unk {g['has_webhooks']['unknown']}"],
         [
-            "OpenAPI spec",
-            f"yes {g['has_openapi_spec']['yes']} / no {g['has_openapi_spec']['no']} / unknown {g['has_openapi_spec']['unknown']} (of {n})",
-        ],
-        [
-            "Needs instance URL",
-            f"yes {g['needs_instance_url']['yes']} / no {g['needs_instance_url']['no']} / unknown {g['needs_instance_url']['unknown']} (of {n})",
-        ],
-        [
-            "Webhooks",
-            f"yes {g['has_webhooks']['yes']} / no {g['has_webhooks']['no']} / unknown {g['has_webhooks']['unknown']} (of {n})",
-        ],
-        [
-            "MCP servers",
+            "MCP",
             (
-                f"official_open {g['mcp_exists']['official_open']} / "
-                f"official_gated {g['mcp_exists']['official_gated']} / "
-                f"community {g['mcp_exists']['community']} / "
-                f"none {g['mcp_exists']['none']} / "
-                f"unknown {g['mcp_exists']['unknown']} (of {n})"
+                f"open {g['mcp_exists']['official_open']} · gated {g['mcp_exists']['official_gated']} · "
+                f"none {g['mcp_exists']['none']} · unk {g['mcp_exists']['unknown']}"
             ),
         ],
     ]
 
-    # Deep accuracy
-    deep_rows = []
-    for field, d in deep["fields"].items():
-        deep_rows.append(
-            [
-                esc(field),
-                str(d["correct"]),
-                str(d["wrong"]),
-                str(d["honestly_unknown"]),
-                f"{d['correct_pct_of_base']}% correct ({d['correct']} of {d['base']})",
-            ]
-        )
+    deep_rows = [
+        [
+            esc(field),
+            str(d["correct"]),
+            str(d["wrong"]),
+            str(d["honestly_unknown"]),
+            f"{d['correct_pct_of_base']}%",
+        ]
+        for field, d in deep["fields"].items()
+    ]
 
-    # Miss table (curated 8–10 named)
+    causes = {
+        ("Twenty", "access_tier"): "trial vs free boundary",
+        ("Zendesk", "access_tier"): "public path → approval_gated vs GT trial",
+        ("Notion", "access_tier"): "missed marketplace review (docs ambiguous)",
+        ("Notion", "auth_primary"): "Basic exchange confused with primary (GT oauth2)",
+        ("Ahrefs", "access_tier"): "Connect partner path vs plain API plan_gated",
+        ("Ahrefs", "mcp_exists"): "open vs gated MCP",
+        ("Meta Ads", "mcp_exists"): "presence wiped (no MCP URL); GT none",
+        ("fanbasis", "access_tier"): "docs password-walled; homepage only",
+        ("DealCloud", "mcp_exists"): "open vs gated MCP",
+        ("QuickBooks", "access_tier"): "path override → free vs GT approval_gated",
+        ("Pylon", "access_tier"): "plan_gated vs GT trial",
+        ("Pylon", "auth_primary"): "api_key vs GT pat",
+    }
+    miss_index = {(m["app"], m["field"]): m for m in deep["misses"]}
     miss_priority = [
         ("Twenty", "access_tier"),
         ("Zendesk", "access_tier"),
-        ("Zendesk", "auth_primary"),
         ("Notion", "access_tier"),
         ("Notion", "auth_primary"),
         ("Ahrefs", "access_tier"),
@@ -176,30 +193,13 @@ def build_html(stats: dict, rows: list[dict], *, repo_url: str, research_repo: s
         ("fanbasis", "access_tier"),
         ("DealCloud", "mcp_exists"),
         ("QuickBooks", "access_tier"),
+        ("Pylon", "access_tier"),
     ]
-    causes = {
-        ("Twenty", "access_tier"): "Trial vs free boundary on pricing page",
-        ("Zendesk", "access_tier"): "Second-round preferred public path → approval_gated vs GT trial",
-        ("Zendesk", "auth_primary"): "Fixed by second-round preference in other runs; GT wants basic",
-        ("Notion", "access_tier"): "Missed marketplace review; docs support two readings",
-        ("Notion", "auth_primary"): "Basic token-exchange confused with primary auth (GT oauth2)",
-        ("Ahrefs", "access_tier"): "Chose Ahrefs Connect partner path vs plain API plan_gated",
-        ("Meta Ads", "mcp_exists"): "MCP presence wiped (no MCP URL); GT is none",
-        ("fanbasis", "access_tier"): "Docs password-walled; only marketing homepage fetched",
-        ("DealCloud", "mcp_exists"): "MCP open vs gated misread",
-        ("QuickBooks", "access_tier"): "Second-round path override flipped a correct approval_gated",
-    }
-    miss_index = {(m["app"], m["field"]): m for m in deep["misses"]}
     miss_rows = []
     for app, field in miss_priority:
         m = miss_index.get((app, field))
         if not m:
-            # find any miss for app
-            cand = [x for x in deep["misses"] if x["app"] == app]
-            if not cand:
-                continue
-            m = cand[0]
-            field = m["field"]
+            continue
         miss_rows.append(
             [
                 esc(m["app"]),
@@ -210,11 +210,14 @@ def build_html(stats: dict, rows: list[dict], *, repo_url: str, research_repo: s
             ]
         )
 
-    # Full table by buildability
-    by_build = {b: [] for b in BUILD_ORDER}
+    version_rows = [
+        [esc(v["version"]), esc(v["overall"])] for v in stats["K_version_history"]
+    ]
+
+    # Full table: drop redundant blocker_type (implied by verdict/unblocker)
+    by_build: dict[str, list] = {b: [] for b in BUILD_ORDER}
     for r in rows:
-        b = r.get("buildability") or "unknown"
-        by_build.setdefault(b, []).append(r)
+        by_build.setdefault(r.get("buildability") or "unknown", []).append(r)
     for b in by_build:
         by_build[b].sort(key=lambda x: (x.get("app_name") or "").lower())
 
@@ -223,263 +226,164 @@ def build_html(stats: dict, rows: list[dict], *, repo_url: str, research_repo: s
         group = by_build.get(b) or []
         if not group:
             continue
-        full_sections.append(f"<h3>{esc(b)} ({len(group)} of {n})</h3><hr>")
+        full_sections.append(f'<h3 id="{esc(b)}">{esc(b)} — {len(group)} of {n}</h3>')
         fr = []
         for r in group:
-            ev = (r.get("evidence") or {}).get("access_tier") or ""
-            if ev:
-                ev_cell = f'<a href="{esc(ev)}">{esc(ev)}</a>'
-            else:
-                ev_cell = "—"
             fr.append(
                 [
                     esc(r.get("app_name")),
-                    esc(r.get("category")),
+                    esc(cat_short(r.get("category") or "")),
                     verdict_cell(r.get("buildability") or "unknown"),
-                    esc(r.get("blocker_type") or ""),
                     esc(r.get("unblocker") or ""),
                     esc(r.get("access_tier") or "unknown"),
                     esc(r.get("auth_primary") or "unknown"),
                     esc(r.get("api_type") or "unknown"),
                     esc(r.get("mcp_exists") or "unknown"),
-                    ev_cell,
+                    short_url((r.get("evidence") or {}).get("access_tier") or ""),
                 ]
             )
         full_sections.append(
             table(
-                [
-                    "app",
-                    "category",
-                    "verdict",
-                    "blocker",
-                    "who unblocks",
-                    "access tier",
-                    "auth",
-                    "api type",
-                    "MCP",
-                    "evidence",
-                ],
+                ["app", "category", "verdict", "who acts", "tier", "auth", "api", "MCP", "evidence"],
                 fr,
             )
         )
 
+    defeated_apps = ", ".join(cov["docs_none_apps"] + ["Salesforce Commerce Cloud"])
+    unknown_tier = ", ".join(cov["access_tier_unknown_apps"])
+
     data_json = json.dumps(rows, ensure_ascii=False)
     stats_embed = json.dumps(stats, ensure_ascii=False)
 
-    version_rows = [
-        [esc(v["version"]), esc(v["overall"]), esc(v["note"])] for v in stats["K_version_history"]
-    ]
-
-    shallow_rows = [
-        ["yes", str(shallow["yes"])],
-        ["disagrees", str(shallow["disagrees"])],
-        ["n_a", str(shallow["n_a"])],
-    ]
-
-    defeated = [
-        ["fanbasis", "Developer docs password-walled; only the marketing homepage was reachable"],
-        ["PitchBook", "No documentation found; schema_fail / empty fetch path"],
-        [
-            "Salesforce Commerce Cloud",
-            "Docs page returned little usable API content (thin / consent furniture)",
-        ],
-    ]
-    for name in cov["docs_none_apps"]:
-        if name not in ("fanbasis", "PitchBook"):
-            defeated.append([name, "docs_access=none_found"])
-
     css = """
-:root { color-scheme: light; }
-body { margin: 0; font: 16px/1.45 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #111; background: #fff; }
-main { max-width: 1100px; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
-h1 { font-size: 1.75rem; font-weight: 700; line-height: 1.25; margin: 0 0 0.5rem; }
-h2 { font-size: 1.25rem; margin: 2rem 0 0.75rem; border-bottom: 1px solid #111; padding-bottom: 0.25rem; }
-h3 { font-size: 1.05rem; margin: 1.25rem 0 0.5rem; }
-p, li { max-width: 70ch; }
-.assumption { color: #333; margin: 0 0 1.25rem; }
-.stat-row { display: flex; flex-wrap: wrap; gap: 1rem; margin: 1rem 0 1.5rem; }
-.stat { border: 1px solid #111; padding: 0.75rem 1rem; min-width: 7rem; }
-.stat .n { font-size: 1.75rem; font-weight: 700; display: block; }
-.stat .l { font-size: 0.85rem; }
-table { border-collapse: collapse; width: 100%; margin: 0.5rem 0 1.25rem; font-size: 0.92rem; }
-th, td { border: 1px solid #111; padding: 0.35rem 0.5rem; text-align: left; vertical-align: top; }
-th { background: #f3f3f3; }
-.swatch { display: inline-block; width: 0.65rem; height: 0.65rem; border: 1px solid #111;
-  vertical-align: middle; margin-right: 0.25rem; }
-.constraints { border: 1px solid #111; padding: 1rem; margin: 1.5rem 0; }
-footer { margin-top: 2rem; font-size: 0.9rem; border-top: 1px solid #111; padding-top: 0.75rem; }
-.takeaway { font-weight: 600; margin: 0.25rem 0 0.5rem; }
-a { color: #111; }
-hr { border: 0; border-top: 1px solid #111; margin: 0.5rem 0 1rem; }
+*{box-sizing:border-box}
+body{margin:0;font:15px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#111;background:#fff}
+main{max-width:1100px;margin:0 auto;padding:1.25rem 1rem 2.5rem}
+h1{font-size:1.35rem;font-weight:700;line-height:1.35;margin:0 0 .4rem}
+h2{font-size:1.05rem;margin:1.6rem 0 .5rem;padding-bottom:.2rem;border-bottom:1px solid #111}
+h3{font-size:.95rem;margin:1rem 0 .35rem}
+p,li{margin:.35rem 0;max-width:72ch}
+.sub{color:#333;margin:0 0 1rem;font-size:.92rem}
+.stats{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:.5rem;margin:0 0 1.25rem}
+@media(max-width:900px){.stats{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:520px){.stats{grid-template-columns:repeat(2,1fr)}}
+.stat{border:1px solid #111;padding:.55rem .65rem;min-height:4.2rem}
+.stat .n{display:block;font-size:1.35rem;font-weight:700;line-height:1.1;word-break:break-word}
+.stat .l{font-size:.75rem;line-height:1.25;color:#222}
+table{border-collapse:collapse;width:100%;margin:.35rem 0 1rem;font-size:.84rem}
+th,td{border:1px solid #111;padding:.28rem .4rem;text-align:left;vertical-align:top}
+th{background:#f2f2f2;font-weight:600}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+.swatch{display:inline-block;width:.55rem;height:.55rem;border:1px solid #111;margin-right:.3rem;vertical-align:middle}
+.note{font-size:.9rem;margin:.25rem 0 .75rem}
+.box{border:1px solid #111;padding:.75rem .9rem;margin:1rem 0}
+footer{margin-top:1.5rem;padding-top:.6rem;border-top:1px solid #111;font-size:.85rem}
+a{color:#111}
+code{font-size:.9em}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+@media(max-width:800px){.two-col{grid-template-columns:1fr}}
 """
-
-    deep_pct = deep["overall"]["correct_pct_of_base"]
-    deep_base = deep["overall"]["base"]
-    deep_correct = deep["overall"]["correct"]
-    tier_pct = deep["fields"]["access_tier"]["correct_pct_of_base"]
-    api_pct = deep["fields"]["api_type"]["correct_pct_of_base"]
-    auth_pct = deep["fields"]["auth_primary"]["correct_pct_of_base"]
-    mcp_pct = deep["fields"]["mcp_exists"]["correct_pct_of_base"]
 
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Composio toolkit research — findings (100 apps)</title>
+<title>Composio toolkit research — 100-app findings</title>
 <style>{css}</style>
 </head>
 <body>
 <main>
-<h1>Of {n} apps, {h['easy_win']} can be built today with self-serve credentials,
-{h['needs_review']} need a vendor to approve, {h['needs_outreach']} need a sales conversation,
-and {h['blocked']} have no usable API.{residual}
-On a hand-labelled sample of {deep['sample_apps']} apps ({deep_base} field labels),
-overall accuracy is {deep_pct}% ({deep_correct} of {deep_base}):
-access_tier {tier_pct}%, auth_primary {auth_pct}%, api_type {api_pct}%, mcp_exists {mcp_pct}%.</h1>
-<p class="assumption">Classified for the public/distributed integration path, since Composio ships
-toolkits that many customers install.</p>
 
-<h2>At a glance</h2>
-<div class="stat-row">
+<h1>Of {n} apps: {h['easy_win']} self-serve today, {h['needs_review']} need vendor approval,
+{h['needs_outreach']} need sales outreach, {h['blocked']} have no usable API
+({h['easy_but_paid']} paid-first, {h['buildability_unknown']} unclassified).
+Accuracy on {deep['sample_apps']} hand-labelled apps ({deep_base} labels):
+<strong>{deep_pct}%</strong> ({deep_correct}/{deep_base}) —
+tier {tier_pct}% · auth {auth_pct}% · api {api_pct}% · MCP {mcp_pct}%.</h1>
+<p class="sub">Public/distributed integration path (Composio ships multi-customer toolkits).
+Auth mix: {esc(auth_line)}.</p>
+
+<div class="stats">
   <div class="stat"><span class="n">{h['easy_win']}</span><span class="l">easy_win</span></div>
   <div class="stat"><span class="n">{h['needs_review']}</span><span class="l">needs_review</span></div>
   <div class="stat"><span class="n">{h['needs_outreach']}</span><span class="l">needs_outreach</span></div>
   <div class="stat"><span class="n">{h['blocked']}</span><span class="l">blocked</span></div>
-  <div class="stat"><span class="n">{h['access_tier_unknown']}</span><span class="l">access_tier unknown</span></div>
-  <div class="stat"><span class="n">{esc(h['most_common_blocker'])}</span><span class="l">most common blocker ({h['most_common_blocker_count']} of {n})</span></div>
+  <div class="stat"><span class="n">{h['access_tier_unknown']}</span><span class="l">tier unknown</span></div>
+  <div class="stat"><span class="n">{h['most_common_blocker_count']}</span><span class="l">{esc(h['most_common_blocker'])} (top blocker)</span></div>
 </div>
 
-<h2>Patterns that change a decision</h2>
+<h2>Proof (up front)</h2>
+<p class="note">Deep check on {deep['sample_apps']} apps × 4 fields. Correct / wrong / honestly unknown —
+never blended with Composio catalog shallow check
+(yes {shallow['yes']} · disagrees {shallow['disagrees']} · n_a {shallow['n_a']} of {n}).
+Same rules engine on labels and agent output.</p>
+{table(['field', 'correct', 'wrong', 'unk', '%'], deep_rows)}
+{table(['app', 'field', 'expected', 'actual', 'cause'], miss_rows)}
+<p class="note"><strong>Docs support two readings:</strong>
+Notion (marketplace vs unlisted public) ·
+Ahrefs (Connect partner vs plan-gated API) ·
+Twenty/Zendesk (free vs trial).</p>
+<p class="note"><strong>Defeated:</strong> {esc(defeated_apps)}.
+<strong>Tier unknown ({cov['access_tier_unknown']} of {n}):</strong> {esc(unknown_tier)}.</p>
+{table(['version', 'score'], version_rows)}
+<p class="note">Prompt tweaks moved little; post-loop code guards lifted the 3-trial average ~58%→~61%.</p>
 
-<h3>Auth complexity does not predict buildability</h3>
-<p class="takeaway">{e['api_key_not_easy_win']} of {e['api_key_total']} api_key apps are not easy_win.
-oauth2 apps span {e['oauth2_distinct_buildability_count']} distinct buildability values
-({', '.join(e['oauth2_buildability_span'])}). Same auth appears across easy_win, needs_review, and needs_outreach —
-triage by who must say yes, not by how hard the integration looks.</p>
+<h2>Patterns</h2>
+<p class="note"><strong>Auth ≠ buildability.</strong>
+{e['api_key_not_easy_win']} of {e['api_key_total']} api_key apps are not easy_win;
+oauth2 spans {e['oauth2_distinct_buildability_count']} verdicts. Triage by who must say yes.</p>
 {table(e_headers, e_rows)}
+<p class="note"><strong>Queues.</strong> {esc(queues['takeaway'])}</p>
+{table(['who acts', 'n', 'wait', 'work'], f_rows)}
 
-<h3>The queues, sized</h3>
-<p class="takeaway">{esc(queues['takeaway'])}</p>
-{table(['who must act', 'app count', 'typical wait', 'what kind of work'], f_rows)}
+<h2>Required counts</h2>
+<div class="two-col">
+<div>
+<p class="note">Auth (of {n}).</p>
+{table(['auth', 'n', '%'], a_rows)}
+<p class="note">Blockers excl. none.</p>
+{table(['blocker', 'n', 'who'], c_rows)}
+</div>
+<div>
+<p class="note">Verdicts.</p>
+{table(['verdict', 'n', 'means'], d_rows)}
+<p class="note">Secondary (of {n}). MCP present but not easy_win: {g['mcp_present_not_easy_win']} of {g['mcp_present']}.</p>
+{table(['signal', 'breakdown'], g_rows)}
+</div>
+</div>
+<p class="note">Categories by access_tier_rollup — most gated {esc(bcat['most_gated_category'])} ({bcat['most_gated_detail']});
+most open {esc(bcat['most_open_category'])} ({bcat['most_open_detail']}).</p>
+{table(['category', 'open', 'paid', 'gated', 'unk', 'n'], b_rows)}
 
-<h2>Four statistics the brief asks for</h2>
-
-<h3>Which auth dominates</h3>
-<p class="takeaway">oauth2 leads at {stats['A_auth_dominates'][0]['count']} of {n}
-({stats['A_auth_dominates'][0]['pct_of_100']}%); api_key is second at
-{stats['A_auth_dominates'][1]['count']} of {n}.</p>
-{table(['auth method', 'count', '% (n of 100)'], a_rows)}
-
-<h3>Which categories are self-serve vs gated</h3>
-<p class="takeaway">Most gated: {esc(bcat['most_gated_category'])} ({bcat['most_gated_detail']}).
-Most open: {esc(bcat['most_open_category'])} ({bcat['most_open_detail']}).
-Uses access_tier_rollup; unknown is its own column.</p>
-{table(['category', 'open', 'paid', 'gated', 'unknown', 'total'], b_rows)}
-
-<h3>The most common blocker</h3>
-<p class="takeaway">Excluding none, the most common blocker is {esc(h['most_common_blocker'])}
-({h['most_common_blocker_count']} of {n}) — vendor review.</p>
-{table(['blocker', 'count', 'who has to act'], c_rows)}
-
-<h3>Easy wins versus needs outreach</h3>
-<p class="takeaway">{h['easy_win']} of {n} are easy_win; {h['needs_outreach']} of {n} need outreach;
-{h['needs_review']} of {n} need vendor review.</p>
-{table(['verdict', 'count', 'what it means'], d_rows)}
-
-<h2>Secondary statistics</h2>
-{table(['signal', 'counts'], g_rows)}
-<p>{g['mcp_present_not_easy_win']} of {g['mcp_present']} apps with an MCP server
-(official_open, official_gated, or community) are not easy_win — MCP presence does not imply
-the API is accessible.</p>
-
-<h2>Full table (100 apps)</h2>
-<p>Sorted by buildability, easiest first; alphabetical within each group. Evidence links to the
-primary access_tier URL when present.</p>
+<h2>All 100 apps</h2>
+<p class="note">Sorted easy→hard; A–Z within group. “Who acts” replaces a separate blocker column (same mapping).</p>
 {''.join(full_sections)}
 
-<h2>How it was built</h2>
-<p>A discover agent with a bound Tavily search tool chooses what to search. Pages are fetched and
-extracted through Tavily via the Composio SDK (direct Tavily fallback if needed). A second, no-tools
-Gemini call fills atomic facts and path fields. Deterministic post-loop guards prefer second-round
-auth/path corrections and wipe MCP presence claims without an MCP URL. A pure-Python rules engine
-(<code>derive_verdict</code>) derives buildability, blockers, and rollups offline — counts and
-cross-tabs, not ML clustering.</p>
-<ul>
-<li>Hand-labelling 30 apps as ground truth before scoring runs</li>
-<li>Choosing the public/distributed path assumption</li>
-<li>Defining enum boundaries (trial vs free, partner vs plan, etc.)</li>
-<li>Diagnosing why prompt-only fixes failed and deterministic code fixes moved accuracy</li>
-</ul>
+<h2>Method</h2>
+<p>Discover agent (Gemini + Tavily search) → Tavily extract via Composio SDK → no-tools extract →
+post-loop guards (second-round auth/path preference; MCP URL presence) →
+Python rules engine for verdicts (not ML clustering).</p>
+<p class="note">Human-required: hand GT (30 apps), public-path assumption, enum boundaries,
+diagnosing prompt vs code fixes.</p>
 
-<h2>Verification</h2>
-<p>Deep verification sample: {deep['sample_apps']} apps across three ground-truth files,
-four scored fields each (up to 120 labels). Correct / wrong / honestly unknown are never blended
-with the shallow Composio check. The same rules engine runs over hand labels and agent output —
-a verdict mismatch always traces to a fact mismatch.</p>
-{table(['field', 'correct', 'wrong', 'honestly unknown', 'rate'], deep_rows)}
-<p>Overall deep: {deep['overall']['correct']} correct, {deep['overall']['wrong']} wrong,
-{deep['overall']['honestly_unknown']} honestly unknown
-({deep['overall']['correct_pct_of_base']}% of {deep['overall']['base']}).</p>
-
-<h3>Shallow verification (Composio auth agreement)</h3>
-<p>{esc(shallow['note'])}</p>
-{table(['agrees_with_composio', 'count'], shallow_rows)}
-
-<h3>Version history</h3>
-{table(['version', 'overall', 'what changed'], version_rows)}
-<p>Prompt-level tweaks moved little on judgement fields. Deterministic code fixes (merge/second-round
-preference, MCP URL presence wipe) moved the three-trial average from about 58% to about 61%.</p>
-
-<h3>Miss table (named)</h3>
-{table(['app', 'field', 'expected', 'actual', 'cause'], miss_rows)}
-
-<h3>Named divergences (docs support two readings)</h3>
-<ul>
-<li><strong>Notion</strong> — public connections may need Marketplace security review, but an unlisted
-public connection can be used without one; both clauses appear in the docs.</li>
-<li><strong>Ahrefs</strong> — Ahrefs Connect is a partner programme; plain API access is only plan-gated.
-Both labels are defensible.</li>
-<li><strong>Twenty / Zendesk</strong> — free versus trial is a boundary call on pricing pages.</li>
-</ul>
-
-<h2>What defeated the agent</h2>
-{table(['app', 'reason'], [[esc(a), esc(b)] for a, b in defeated])}
-<p>{cov['access_tier_unknown']} of {n} apps ended with access_tier unknown:
-{esc(', '.join(cov['access_tier_unknown_apps']))}.</p>
-
-<div class="constraints">
+<div class="box">
 <h2>Constraints</h2>
-<p>Built entirely on free tiers: Gemini Flash-lite for all model calls, Tavily free credits for
-search and extraction, no paid accounts for any of the 100 apps, and no local model. That capped
-the pipeline at roughly two model calls and six page fetches per app.</p>
-<p>Flash-lite is a weak choice for multi-step reasoning and boundary judgements (trial vs free,
-MCP open vs gated, public-path auth). A stronger model would be a better choice for extraction
-and any future verifier.</p>
-<p>There is no second verification agent today. That is a free-tier / call-budget constraint, not
-a design preference. Without those constraints, a second agent would re-read fetched pages and
-challenge every scored field before commit — expected to catch hallucinated MCP, wrong auth, and
-path/tier misreads beyond what post-loop guards alone can fix.</p>
-<p>Three further fixes were identified but not shipped: trial-versus-free detection in the extract
-prompt, MCP open-versus-gated gating on page text rather than URL presence, and a corrected
-auth_detail conflict rule. Together these were expected to move overall accuracy from roughly
-61% into the 65–70% range.</p>
-<p>Accuracy is also not one number. Factual fields reach 90% (api_type, {deep['fields']['api_type']['correct']}
-of {deep['fields']['api_type']['base']}). Judgement fields reach
-{deep['fields']['access_tier']['correct_pct_of_base']}% (access_tier), and roughly a third of those
-errors are boundary disagreements where the vendor's own documentation supports both labels.</p>
+<p>Free tiers only (Flash-lite, Tavily credits, no paid app accounts) → ~2 model calls and ≤6 pages/app.
+Flash-lite is weak for boundary judgement; a stronger model would help more than further prompt tweaks.
+No second verification agent (budget constraint)—without that limit, a verifier over scored fields would raise accuracy further.
+Unshipped: trial/free detect, MCP gated-from-page-text, tighter auth_detail conflict → expected ~61% toward 65–70%.
+Accuracy is not one number: api_type {api_pct}% vs access_tier {tier_pct}% (many boundary disagreements).</p>
 </div>
 
 <footer>
-<p>Findings page repo: <a href="{esc(repo_url)}">{esc(repo_url)}</a>.
-Research pipeline: <a href="{esc(research_repo)}">{esc(research_repo)}</a>.</p>
-<p>Run data: v2b postguard + rules-engine derive · page generated {esc(date.today().isoformat())}.</p>
-<p>Reproduce: prepare_final.py → build_stats.py → build_page.py from
-composio-toolkit-research (<code>publish-v2-harden</code>).</p>
+<p><a href="{esc(repo_url)}">{esc(repo_url)}</a> ·
+<a href="{esc(research_repo)}">{esc(research_repo)}</a> ·
+generated {esc(date.today().isoformat())} ·
+reproduce: <code>prepare_final.py → build_stats.py → build_page.py</code> on <code>master</code></p>
 </footer>
-</main>
 
+</main>
 <script type="application/json" id="data">{data_json}</script>
 <script type="application/json" id="stats">{stats_embed}</script>
 </body>
@@ -492,34 +396,26 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--stats", default="data/stats.json")
     parser.add_argument("--final", default="data/final.json")
     parser.add_argument("--out", default="index.html")
-    parser.add_argument(
-        "--repo-url",
-        default="https://github.com/Aacashi/composio-toolkit-findings",
-    )
+    parser.add_argument("--repo-url", default="https://github.com/Aacashi/composio-toolkit-findings")
     parser.add_argument(
         "--research-repo",
-        default="https://github.com/Aacashi/composio-toolkit-research/tree/publish-v2-harden",
+        default="https://github.com/Aacashi/composio-toolkit-research",
     )
     args = parser.parse_args(argv)
 
-    stats_path = Path(args.stats)
-    final_path = Path(args.final)
-    out_path = Path(args.out)
-    if not stats_path.is_absolute():
-        stats_path = ROOT / stats_path
-    if not final_path.is_absolute():
-        final_path = ROOT / final_path
-    if not out_path.is_absolute():
-        out_path = ROOT / out_path
+    def resolve(p: str) -> Path:
+        path = Path(p)
+        return path if path.is_absolute() else ROOT / path
 
-    html_out = build_html(
-        load(stats_path),
-        load(final_path),
+    out = build_html(
+        load(resolve(args.stats)),
+        load(resolve(args.final)),
         repo_url=args.repo_url,
         research_repo=args.research_repo,
     )
-    out_path.write_text(html_out, encoding="utf-8")
-    print(f"[page] wrote {out_path} ({len(html_out)} bytes)")
+    out_path = resolve(args.out)
+    out_path.write_text(out, encoding="utf-8")
+    print(f"[page] wrote {out_path} ({len(out)} bytes)")
     return 0
 
 
