@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any, Optional
 from urllib.parse import urlsplit, urlunsplit
 
@@ -9,6 +10,21 @@ from pipeline.debug_log import DebugRecorder
 from pipeline.domains import domain_in_first_party
 from pipeline.verdict import CLI_SHORTCIRCUIT_FIELDS
 from schema import GEMINI_FACT_FIELDS, HINT_FIELD_MAP
+
+# Prefer second-round value when merge_extract logged a contradiction.
+SECOND_ROUND_PREFER_FIELDS = (
+    "auth_primary",
+    "integration_paths",
+    "private_path_access",
+    "public_path_access",
+)
+
+_CONTRADICTION_RE = re.compile(
+    r"contradiction\s+(\w+)\s*:\s*kept\s+['\"](.+?)['\"]\s*,\s*second said\s+['\"](.+?)['\"]",
+    re.IGNORECASE,
+)
+
+MCP_PRESENCE_VALUES = frozenset({"official_open", "official_gated", "community"})
 
 STRICT_FIRST_PARTY_FIELDS = (
     "auth_primary",
@@ -372,6 +388,98 @@ def apply_auth_detail_conflict(
         dbg.add_guard_change(
             "auth_primary", before, "basic", "auth_detail describes Basic auth"
         )
+    return row
+
+
+def sources_have_mcp_url(sources: list[str] | None) -> bool:
+    return any(
+        "mcp" in (u or "").lower() or "modelcontext" in (u or "").lower()
+        for u in (sources or [])
+    )
+
+
+def apply_second_round_preference(
+    row: dict[str, Any],
+    *,
+    dbg: Optional[DebugRecorder] = None,
+) -> dict[str, Any]:
+    """
+    Post-loop: if merge logged contradiction field: kept X, second said Y,
+    prefer Y for auth_primary and path fields (second round saw more pages).
+    """
+    notes = row.get("notes") or ""
+    if "contradiction" not in notes.lower():
+        return row
+    flags: list[str] = list(row.get("flags") or [])
+    changed = False
+    for match in _CONTRADICTION_RE.finditer(notes):
+        field, kept, second = match.group(1), match.group(2), match.group(3)
+        if field not in SECOND_ROUND_PREFER_FIELDS:
+            continue
+        if row.get(field) != kept:
+            # Already diverged from the logged "kept" value; skip.
+            continue
+        if second in (None, "", "unknown") and field == "auth_primary":
+            continue
+        before = row.get(field)
+        row[field] = second
+        changed = True
+        if dbg:
+            dbg.add_guard_change(
+                field,
+                before,
+                second,
+                "post-loop: prefer second-round contradiction value",
+            )
+    if changed and "second_round_preferred" not in flags:
+        flags.append("second_round_preferred")
+    row["flags"] = flags
+    return row
+
+
+def apply_mcp_presence_url_guard(
+    row: dict[str, Any],
+    *,
+    dbg: Optional[DebugRecorder] = None,
+) -> dict[str, Any]:
+    """Post-loop: official/community MCP claims require an MCP-related fetched URL."""
+    val = row.get("mcp_exists")
+    if val not in MCP_PRESENCE_VALUES:
+        return row
+    if sources_have_mcp_url(row.get("sources_fetched")):
+        return row
+    before = val
+    row["mcp_exists"] = "unknown"
+    evidence = dict(row.get("evidence") or {})
+    evidence.pop("mcp_exists", None)
+    row["evidence"] = evidence
+    flags = list(row.get("flags") or [])
+    if "mcp_presence_no_url" not in flags:
+        flags.append("mcp_presence_no_url")
+    row["flags"] = flags
+    if dbg:
+        dbg.add_guard_change(
+            "mcp_exists",
+            before,
+            "unknown",
+            "post-loop: MCP presence without mcp URL in sources_fetched",
+        )
+    return row
+
+
+def apply_post_loop_guards(
+    row: dict[str, Any],
+    *,
+    dbg: Optional[DebugRecorder] = None,
+) -> dict[str, Any]:
+    """
+    Cheap deterministic fixes after the agent loop (no LLM / no cache replay).
+    1) Prefer second-round values logged in contradiction notes.
+    2) Wipe MCP presence claims with no MCP URL fetched.
+    Caller should re-derive access_tier after this.
+    """
+    row = apply_second_round_preference(row, dbg=dbg)
+    row = apply_mcp_presence_url_guard(row, dbg=dbg)
     return row
 
 

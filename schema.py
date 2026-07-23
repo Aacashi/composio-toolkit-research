@@ -63,6 +63,7 @@ class AccessTierRollup(str, Enum):
     open = "open"
     paid = "paid"
     gated = "gated"
+    unknown = "unknown"
 
 
 class ApiType(str, Enum):

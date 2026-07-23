@@ -10,7 +10,7 @@ from pipeline.clean import assemble_extract_input, chunk_text, clean_page
 from pipeline.debug_log import DebugRecorder
 from pipeline.domains import merge_discovered_domains, seed_first_party_domains
 from pipeline.gemini_client import chunk_filter_call, discover_with_search_agent, generate_json
-from pipeline.guard import apply_guard
+from pipeline.guard import apply_guard, apply_post_loop_guards
 from pipeline.tavily_client import TavilyClient
 from pipeline.url_check import url_is_live
 from schema import (
@@ -499,6 +499,21 @@ def merge_extract(first: dict[str, Any], second: dict[str, Any]) -> dict[str, An
         old_ev = ev1.get(field)
         sourced = old not in (None, "", [], "unknown", "n_a") and bool(old_ev)
         if sourced:
+            # Scored / path fields: prefer second round (more pages) over first.
+            if field in (
+                "auth_primary",
+                "integration_paths",
+                "private_path_access",
+                "public_path_access",
+            ):
+                out[field] = new
+                if field in ev2:
+                    ev1[field] = ev2[field]
+                if field in (second.get("confidence") or {}):
+                    conf[field] = second["confidence"][field]
+                if new != old:
+                    notes.append(f"second_round_override {field}: was {old!r}, now {new!r}")
+                continue
             if new != old:
                 notes.append(f"contradiction {field}: kept {old!r}, second said {new!r}")
             continue
@@ -692,11 +707,14 @@ def build_row(
 
     cli = row.get("api_type") == "cli_only"
     before = {f: row.get(f) for f in GEMINI_FACT_FIELDS}
-    # OFFLINE_GUARDS: skip apply_guard during publish; store raw for later.
+    # Full apply_guard stays offline; these two always run post-loop (no LLM).
+    row = apply_post_loop_guards(row, dbg=dbg)
+    # OFFLINE_GUARDS: skip full apply_guard during publish; store raw for later.
     # row = apply_guard(row, cli_shortcircuit=cli, dbg=dbg, pages=pages or [])
     _ = (cli, apply_guard)  # keep import used for offline / re-enable
     row = derive_access_tier_from_paths(row)
     row["guard_applied"] = False
+    row["post_loop_guards"] = True
     row["pages_meta"] = [
         {
             "url": p.get("url"),
@@ -709,5 +727,5 @@ def build_row(
     ]
     for f in GEMINI_FACT_FIELDS:
         if before.get(f) != row.get(f):
-            dbg.add_guard_change(f, before.get(f), row.get(f), "derive")
+            dbg.add_guard_change(f, before.get(f), row.get(f), "post_loop_or_derive")
     return row
